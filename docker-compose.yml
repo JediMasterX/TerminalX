@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  terminalx:
+    image: terminalx:1.1.2
+    container_name: terminalx
+    # Expose the same port your FastAPI app listens on (8087 by default)
+    ports:
+      - '8087:8087'
+    restart: unless-stopped
+    # If you need to mount local config, uncomment & adjust:
+    #volumes:
+    #   - ./config.json:/app/config.json:ro
+    #   - ./static:/app/static:ro
+    #   - ./templates:/app/templates:ro
+    environment:
+      - TD_PATH=/sources/indot.html
+      - MOBY_PORT=9085
+      # SFTP Configuration - Add these lines
+      - SFTP_HOST=                    # Leave empty to use current hostname (recommended)
+      - SFTP_PORT=3000               # Port where sftp-browser service runs
+      - SFTP_PROTOCOL=http           # Force HTTP to avoid SSL errors
+      
+  sftp-browser:
+    image: sftp-server:1.0.2
+    container_name: sftp-server
+    # Expose the port that SFTP-Browser serves its HTTP UI on (8261)
+    ports:
+      - '3000:3000'
+    restart: unless-stopped
+    #volumes:
+    #   - ./web:/app/web:ro

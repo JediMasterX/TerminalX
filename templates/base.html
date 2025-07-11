@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ title or "TerminalX - SSH Infrastructure Management" }}</title>
+  
+  <!-- Favicon and App Icons -->
+  <link rel="icon" type="image/png" href="/static/img/logo.png">
+  <link rel="apple-touch-icon" href="/static/img/logo.png">
+  
+  <!-- Preload critical resources -->
+  <link rel="preload" href="/static/css/style.css" as="style">
+  <link rel="preload" href="/static/vendor/xterm/xterm.css" as="style">
+  
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="/static/vendor/xterm/xterm.css">
+  <link rel="stylesheet" href="/static/css/style.css">
+  
+  <!-- Config script -->
+  <script src="/config.js"></script>
+  
+  <!-- Meta tags for better SEO and sharing -->
+  <meta name="description" content="TerminalX - Modern SSH infrastructure management and multi-host command execution platform">
+  <meta name="keywords" content="SSH, Terminal, Infrastructure, DevOps, Server Management">
+  <meta name="author" content="TerminalX">
+  
+  <!-- Theme color for mobile browsers -->
+  <meta name="theme-color" content="#0d1117">
+  <meta name="msapplication-navbutton-color" content="#0d1117">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+</head>
+<body>
+  <!-- Loading overlay for better UX -->
+  <div id="loading-overlay" class="loading-overlay">
+    <div class="loading-spinner">
+      <img src="/static/img/logo.png" alt="TerminalX" class="loading-logo">
+      <div class="loading-text">Loading TerminalX...</div>
+    </div>
+  </div>
+
+  <!-- Modern Navigation Bar -->
+  <nav class="navbar" role="navigation" aria-label="Main navigation">
+    <div class="navbar-brand">
+      <a href="/dashboard" class="brand">
+        <img src="/static/img/logo.png" alt="TerminalX Logo" class="navbar-icon">
+        <span class="brand-text">TerminalX</span>
+      </a>
+    </div>
+
+    {% if request.session.get("user") %}
+      <div class="navbar-nav">
+        <a href="/dashboard" 
+           class="nav-link{% if request.url.path == '/dashboard' %} active{% endif %}"
+           aria-label="Dashboard">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="9"/>
+            <rect x="14" y="3" width="7" height="5"/>
+            <rect x="14" y="12" width="7" height="9"/>
+            <rect x="3" y="16" width="7" height="5"/>
+          </svg>
+          <span class="nav-text">Dashboard</span>
+        </a>
+        
+        <a href="/portal" 
+           class="nav-link{% if request.url.path == '/portal' %} active{% endif %}"
+           aria-label="Multi-host command execution">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+            <line x1="8" y1="21" x2="16" y2="21"/>
+            <line x1="12" y1="17" x2="12" y2="21"/>
+          </svg>
+          <span class="nav-text">MultiExec</span>
+        </a>
+        
+        <a href="/script" 
+           class="nav-link{% if request.url.path == '/script' %} active{% endif %}"
+           aria-label="Script execution across hosts">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+            <polyline points="14,2 14,8 20,8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+            <polyline points="10,9 9,9 8,9"/>
+          </svg>
+          <span class="nav-text">ScriptExec</span>
+        </a>
+        
+        <a href="/upload" 
+           class="nav-link{% if request.url.path == '/upload' %} active{% endif %}"
+           aria-label="File upload to multiple hosts">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+            <polyline points="7,10 12,15 17,10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          <span class="nav-text">FileUploader</span>
+        </a>
+        
+        <a href="/range" 
+           class="nav-link{% if request.url.path == '/range' %} active{% endif %}"
+           aria-label="IP range generator">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M12 1v6m0 6v6"/>
+            <path d="M21 12h-6m-6 0H3"/>
+          </svg>
+          <span class="nav-text">RangeGen</span>
+        </a>
+
+        {% set user = request.session.get("user") %}
+        {% if user and user.is_admin %}
+          <a href="/shutdown" 
+             class="nav-link nav-link-danger{% if request.url.path == '/shutdown' %} active{% endif %}"
+             aria-label="System shutdown (Admin only)">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18.36 6.64a9 9 0 11-12.73 0"/>
+              <line x1="12" y1="2" x2="12" y2="12"/>
+            </svg>
+            <span class="nav-text">Shutdown</span>
+          </a>
+        {% endif %}
+
+        <div class="navbar-divider"></div>
+        
+        <div class="user-menu">
+          <button class="user-menu-toggle" aria-label="User menu" aria-expanded="false">
+            <div class="user-avatar">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+              </svg>
+            </div>
+            <span class="user-name">{{ user.username|capitalize }}</span>
+            <svg class="dropdown-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="6,9 12,15 18,9"/>
+            </svg>
+          </button>
+          
+          <div class="user-menu-dropdown">
+            <div class="user-info-card">
+              <div class="user-details">
+                <div class="user-display-name">{{ user.username|capitalize }}</div>
+                <div class="user-role">
+                  {% if user.is_admin %}
+                    <span class="role-badge admin">Administrator</span>
+                  {% else %}
+                    <span class="role-badge user">User</span>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+            
+            <div class="menu-divider"></div>
+            
+            <a href="/logout" class="menu-item logout-item">
+              <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
+                <polyline points="16,17 21,12 16,7"/>
+                <line x1="21" y1="12" x2="9" y2="12"/>
+              </svg>
+              Sign Out
+            </a>
+          </div>
+        </div>
+      </div>
+    {% else %}
+      <div class="navbar-nav">
+        <a href="/login" class="nav-link">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/>
+            <polyline points="10,17 15,12 10,7"/>
+            <line x1="15" y1="12" x2="3" y2="12"/>
+          </svg>
+          <span class="nav-text">Sign In</span>
+        </a>
+      </div>
+    {% endif %}
+  </nav>
+
+  <!-- Main Content Area -->
+  <main class="main-content" role="main">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer-content">
+      <div class="footer-brand">
+        <img src="/static/img/logo.png" alt="TerminalX" class="footer-logo">
+        <span class="footer-text">TerminalX by Benell &copy; 2025</span>
+      </div>
+      <div class="footer-links">
+        <span class="footer-version">v1.1.2</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="/static/vendor/xterm/xterm.js"></script>
+  <script src="/static/vendor/xterm/xterm-addon-fit.js"></script>
+  <script src="/static/vendor/xterm/xterm-addon-web-links.js"></script>
+  <script src="/static/vendor/xterm/xterm-addon-search.js"></script>
+  <script src="/static/vendor/xterm/xterm-addon-serialize.js"></script>
+  
+  <!-- Application Scripts -->
+  <script src="/static/js/treeview.js"></script>
+  <script src="/static/js/terminal.js"></script>
+  <script src="/static/js/multi_exec.js"></script>
+  <script src="/static/js/script_exec.js"></script>
+  <script src="/static/js/range_gen.js"></script>
+  <script src="/static/js/file_uploader.js"></script>
+
+  <!-- Enhanced Base Script -->
+  <script>
+    // Remove loading overlay when page is fully loaded
+    window.addEventListener('load', function() {
+      const loadingOverlay = document.getElementById('loading-overlay');
+      if (loadingOverlay) {
+        loadingOverlay.style.opacity = '0';
+        setTimeout(() => {
+          loadingOverlay.style.display = 'none';
+        }, 300);
+      }
+    });
+
+    // User menu functionality
+    document.addEventListener('DOMContentLoaded', function() {
+      const userMenuToggle = document.querySelector('.user-menu-toggle');
+      const userMenuDropdown = document.querySelector('.user-menu-dropdown');
+      
+      if (userMenuToggle && userMenuDropdown) {
+        userMenuToggle.addEventListener('click', function(e) {
+          e.stopPropagation();
+          const isExpanded = userMenuToggle.getAttribute('aria-expanded') === 'true';
+          userMenuToggle.setAttribute('aria-expanded', !isExpanded);
+          userMenuDropdown.classList.toggle('show');
+        });
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(e) {
+          if (!userMenuToggle.contains(e.target) && !userMenuDropdown.contains(e.target)) {
+            userMenuToggle.setAttribute('aria-expanded', 'false');
+            userMenuDropdown.classList.remove('show');
+          }
+        });
+      }
+
+      // Enhanced navigation active state management
+      const currentPath = window.location.pathname;
+      const navLinks = document.querySelectorAll('.nav-link');
+      
+      navLinks.forEach(link => {
+        if (link.getAttribute('href') === currentPath) {
+          link.classList.add('active');
+        }
+      });
+
+      // Add smooth scrolling to anchor links
+      document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', function (e) {
+          e.preventDefault();
+          const target = document.querySelector(this.getAttribute('href'));
+          if (target) {
+            target.scrollIntoView({
+              behavior: 'smooth',
+              block: 'start'
+            });
+          }
+        });
+      });
+
+      // Add keyboard navigation support
+      document.addEventListener('keydown', function(e) {
+        // Escape key closes user menu
+        if (e.key === 'Escape') {
+          const userMenuToggle = document.querySelector('.user-menu-toggle');
+          const userMenuDropdown = document.querySelector('.user-menu-dropdown');
+          if (userMenuToggle && userMenuDropdown && userMenuDropdown.classList.contains('show')) {
+            userMenuToggle.setAttribute('aria-expanded', 'false');
+            userMenuDropdown.classList.remove('show');
+            userMenuToggle.focus();
+          }
+        }
+      });
+    });
+
+    // Global error handling
+    window.addEventListener('error', function(e) {
+      console.error('Global error:', e.error);
+      // You could add a notification system here
+    });
+
+    // Performance observer for monitoring loading
+    if ('PerformanceObserver' in window) {
+      const observer = new PerformanceObserver((list) => {
+        for (const entry of list.getEntries()) {
+          if (entry.entryType === 'navigation') {
+            console.log(`Page load time: ${entry.loadEventEnd - entry.loadEventStart}ms`);
+          }
+        }
+      });
+      observer.observe({ entryTypes: ['navigation'] });
+    }
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="login-container">
+    <!-- Centered, rotating logo -->
+    <img src="/static/img/logoM.png" alt="Logo" class="login-logo">
+
+    <h2>Login</h2>
+    <form method="post" action="/login">
+      <input type="text" name="username" placeholder="Username" required>
+      <input type="password" name="password" placeholder="Password" required>
+      {% if error %}<p class="error">{{ error }}</p>{% endif %}
+      <button type="submit">Login</button>
+    </form>
+    <p>New? <a href="/register">Register here</a></p>
+  </div>
+{% endblock %}

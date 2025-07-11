@@ -1,0 +1,517 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="admin-status-page">
+  <div class="page-header">
+    <h1 class="page-title">
+      <svg class="page-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M9 12l2 2 4-4"/>
+        <path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9c1.84 0 3.55.56 4.98 1.52"/>
+      </svg>
+      Host Status Monitor
+    </h1>
+    <p class="page-description">Monitor and control the background host status checker</p>
+  </div>
+
+  <!-- Status Overview -->
+  <div class="status-overview">
+    <div class="status-grid">
+      <div class="status-card {% if cache_info.is_running %}online{% else %}offline{% endif %}">
+        <div class="status-icon">
+          {% if cache_info.is_running %}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 12l2 2 4-4"/>
+              <path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9c1.84 0 3.55.56 4.98 1.52"/>
+            </svg>
+          {% else %}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="15" y1="9" x2="9" y2="15"/>
+              <line x1="9" y1="9" x2="15" y2="15"/>
+            </svg>
+          {% endif %}
+        </div>
+        <div class="status-info">
+          <h3>Background Checker</h3>
+          <p>{% if cache_info.is_running %}Running{% else %}Stopped{% endif %}</p>
+        </div>
+      </div>
+
+      <div class="status-card">
+        <div class="status-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+            <line x1="8" y1="21" x2="16" y2="21"/>
+            <line x1="12" y1="17" x2="12" y2="21"/>
+          </svg>
+        </div>
+        <div class="status-info">
+          <h3>Total Hosts</h3>
+          <p>{{ cache_info.total_hosts or 0 }}</p>
+        </div>
+      </div>
+
+      <div class="status-card online">
+        <div class="status-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 12l2 2 4-4"/>
+            <path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9c1.84 0 3.55.56 4.98 1.52"/>
+          </svg>
+        </div>
+        <div class="status-info">
+          <h3>Online Hosts</h3>
+          <p>{{ cache_info.online_hosts or 0 }}</p>
+        </div>
+      </div>
+
+      <div class="status-card">
+        <div class="status-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <polyline points="12,6 12,12 16,14"/>
+          </svg>
+        </div>
+        <div class="status-info">
+          <h3>Last Update</h3>
+          <p>
+            {% if cache_info.last_update %}
+              {{ cache_info.last_update.strftime('%H:%M:%S') }}
+            {% else %}
+              Never
+            {% endif %}
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Control Panel -->
+  <div class="control-panel">
+    <div class="section-header">
+      <h2 class="section-title">
+        <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12.5 2C13.3 2 14 2.7 14 3.5V5H16.5C17.3 5 18 5.7 18 6.5S17.3 8 16.5 8H14V9.5C14 10.3 13.3 11 12.5 11S11 10.3 11 9.5V8H9.5C8.7 8 8 7.3 8 6.5S8.7 5 9.5 5H11V3.5C11 2.7 11.7 2 12.5 2Z"/>
+        </svg>
+        Control Panel
+      </h2>
+      <p class="section-description">Start, stop, and manage the background status checker</p>
+    </div>
+
+    <div class="control-actions">
+      {% if cache_info.is_running %}
+        <button onclick="stopStatusChecker()" class="control-btn stop">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="6" y="6" width="12" height="12"/>
+          </svg>
+          Stop Checker
+        </button>
+      {% else %}
+        <button onclick="startStatusChecker()" class="control-btn start">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="5,3 19,12 5,21"/>
+          </svg>
+          Start Checker
+        </button>
+      {% endif %}
+
+      <button onclick="refreshStatus()" class="control-btn refresh">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 12a9 9 0 019-9 9.75 9.75 0 016.74 2.74L21 8"/>
+          <path d="M21 3v5h-5"/>
+          <path d="M21 12a9 9 0 01-9 9 9.75 9.75 0 01-6.74-2.74L3 16"/>
+          <path d="M3 21v-5h5"/>
+        </svg>
+        Refresh
+      </button>
+
+      <a href="/api/host_status/info" target="_blank" class="control-btn info">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M12 16v-4"/>
+          <path d="M12 8h.01"/>
+        </svg>
+        API Info
+      </a>
+    </div>
+  </div>
+
+  <!-- Configuration Info -->
+  <div class="config-info">
+    <div class="section-header">
+      <h2 class="section-title">
+        <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/>
+        </svg>
+        Configuration
+      </h2>
+    </div>
+
+    <div class="config-grid">
+      <div class="config-item">
+        <div class="config-label">Check Interval</div>
+        <div class="config-value">{{ status_manager.check_interval }} seconds</div>
+      </div>
+      <div class="config-item">
+        <div class="config-label">Max Concurrent</div>
+        <div class="config-value">{{ status_manager.max_concurrent }} hosts</div>
+      </div>
+      <div class="config-item">
+        <div class="config-label">Ping Timeout</div>
+        <div class="config-value">{{ status_manager.ping_timeout }} seconds</div>
+      </div>
+      <div class="config-item">
+        <div class="config-label">SSH Timeout</div>
+        <div class="config-value">{{ status_manager.ssh_timeout }} seconds</div>
+      </div>
+      <div class="config-item">
+        <div class="config-label">Ping Count</div>
+        <div class="config-value">{{ status_manager.ping_count }} packets</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Live Status Updates -->
+  <div class="live-updates" id="liveUpdates">
+    <div class="section-header">
+      <h2 class="section-title">
+        <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 12a9 9 0 019-9 9.75 9.75 0 016.74 2.74L21 8"/>
+          <path d="M21 3v5h-5"/>
+          <path d="M21 12a9 9 0 01-9 9 9.75 9.75 0 01-6.74-2.74L3 16"/>
+          <path d="M3 21v-5h5"/>
+        </svg>
+        Live Status
+        <span class="live-indicator">🔄</span>
+      </h2>
+    </div>
+
+    <div class="status-log" id="statusLog">
+      <div class="log-entry">
+        <span class="timestamp">{{ cache_info.last_update.strftime('%H:%M:%S') if cache_info.last_update else 'N/A' }}</span>
+        <span class="message">Background checker {% if cache_info.is_running %}running{% else %}stopped{% endif %}</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Admin Status Page JavaScript
+let statusRefreshInterval;
+
+function startStatusChecker() {
+  fetch('/api/host_status/start', { method: 'POST' })
+    .then(response => response.json())
+    .then(data => {
+      showNotification(data.message, 'success');
+      setTimeout(() => window.location.reload(), 1000);
+    })
+    .catch(error => {
+      showNotification('Error starting status checker', 'error');
+      console.error('Error:', error);
+    });
+}
+
+function stopStatusChecker() {
+  fetch('/api/host_status/stop', { method: 'POST' })
+    .then(response => response.json())
+    .then(data => {
+      showNotification(data.message, 'success');
+      setTimeout(() => window.location.reload(), 1000);
+    })
+    .catch(error => {
+      showNotification('Error stopping status checker', 'error');
+      console.error('Error:', error);
+    });
+}
+
+function refreshStatus() {
+  window.location.reload();
+}
+
+function showNotification(message, type) {
+  // Create a simple notification
+  const notification = document.createElement('div');
+  notification.className = `notification ${type}`;
+  notification.textContent = message;
+  notification.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 15px 20px;
+    border-radius: 5px;
+    color: white;
+    z-index: 1000;
+    ${type === 'success' ? 'background-color: #4CAF50;' : 'background-color: #f44336;'}
+  `;
+  
+  document.body.appendChild(notification);
+  
+  setTimeout(() => {
+    notification.remove();
+  }, 3000);
+}
+
+function updateLiveStatus() {
+  fetch('/api/host_status/info')
+    .then(response => response.json())
+    .then(data => {
+      const indicator = document.querySelector('.live-indicator');
+      const log = document.getElementById('statusLog');
+      
+      if (data.is_running) {
+        indicator.textContent = '✅';
+      } else {
+        indicator.textContent = '❌';
+      }
+      
+      // Add new log entry
+      const timestamp = new Date().toLocaleTimeString();
+      const logEntry = document.createElement('div');
+      logEntry.className = 'log-entry';
+      logEntry.innerHTML = `
+        <span class="timestamp">${timestamp}</span>
+        <span class="message">${data.online_hosts}/${data.total_hosts} hosts online</span>
+      `;
+      
+      // Keep only last 10 entries
+      if (log.children.length >= 10) {
+        log.removeChild(log.firstChild);
+      }
+      
+      log.appendChild(logEntry);
+    })
+    .catch(error => {
+      console.warn('Failed to update live status:', error);
+    });
+}
+
+// Start live updates when page loads
+document.addEventListener('DOMContentLoaded', function() {
+  // Update every 5 seconds
+  statusRefreshInterval = setInterval(updateLiveStatus, 5000);
+  
+  // Initial update
+  updateLiveStatus();
+});
+
+// Clean up interval when page unloads
+window.addEventListener('beforeunload', function() {
+  if (statusRefreshInterval) {
+    clearInterval(statusRefreshInterval);
+  }
+});
+</script>
+
+<style>
+.admin-status-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.page-header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.page-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 2.5rem;
+  margin-bottom: 10px;
+}
+
+.page-icon {
+  width: 40px;
+  height: 40px;
+}
+
+.status-overview {
+  margin-bottom: 30px;
+}
+
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+}
+
+.status-card {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  border-left: 4px solid #ddd;
+}
+
+.status-card.online {
+  border-left-color: #4CAF50;
+}
+
+.status-card.offline {
+  border-left-color: #f44336;
+}
+
+.status-icon {
+  width: 40px;
+  height: 40px;
+  color: #666;
+}
+
+.status-card.online .status-icon {
+  color: #4CAF50;
+}
+
+.status-card.offline .status-icon {
+  color: #f44336;
+}
+
+.status-info h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #333;
+}
+
+.status-info p {
+  margin: 5px 0 0 0;
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #666;
+}
+
+.control-panel, .config-info, .live-updates {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.section-header {
+  margin-bottom: 20px;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.5rem;
+  margin-bottom: 5px;
+}
+
+.section-icon {
+  width: 24px;
+  height: 24px;
+}
+
+.section-description {
+  color: #666;
+  margin: 0;
+}
+
+.control-actions {
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+.control-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  text-decoration: none;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+}
+
+.control-btn.start {
+  background: #4CAF50;
+  color: white;
+}
+
+.control-btn.stop {
+  background: #f44336;
+  color: white;
+}
+
+.control-btn.refresh {
+  background: #2196F3;
+  color: white;
+}
+
+.control-btn.info {
+  background: #ff9800;
+  color: white;
+}
+
+.control-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+.config-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+}
+
+.config-item {
+  background: #f5f5f5;
+  padding: 15px;
+  border-radius: 6px;
+}
+
+.config-label {
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 5px;
+}
+
+.config-value {
+  color: #666;
+  font-size: 1.1rem;
+}
+
+.live-indicator {
+  font-size: 1rem;
+}
+
+.status-log {
+  max-height: 200px;
+  overflow-y: auto;
+  background: #f8f9fa;
+  border-radius: 4px;
+  padding: 10px;
+}
+
+.log-entry {
+  display: flex;
+  gap: 15px;
+  padding: 5px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.log-entry:last-child {
+  border-bottom: none;
+}
+
+.timestamp {
+  color: #666;
+  font-family: monospace;
+  white-space: nowrap;
+}
+
+.message {
+  color: #333;
+}
+</style>
+{% endblock %}

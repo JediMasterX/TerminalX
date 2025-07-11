@@ -1,0 +1,911 @@
+{% extends "base.html" %}
+{% block content %}
+  <!-- Welcome Header with User Info -->
+  <div class="welcome-header">
+    <div class="user-info">
+      <h1 class="welcome-title">
+        Welcome, {{ user.username|capitalize }}
+        {% if user.is_admin %}
+          <span class="admin-badge">Admin</span>
+        {% endif %}
+      </h1>
+    </div>
+    <div class="quick-stats">
+      <div class="stat-card">
+        <div class="stat-number" id="total-hosts-count">0</div>
+        <div class="stat-label">Total Hosts</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Host Form -->
+  <div class="form-section">
+    <div class="section-header collapsible-header" onclick="toggleSection('add-host-form')">
+      <h3 class="section-title">
+        <svg class="section-icon toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="16"/>
+          <line x1="8" y1="12" x2="16" y2="12"/>
+        </svg>
+        Add New Host
+      </h3>
+      <svg class="collapse-indicator" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="6,9 12,15 18,9"/>
+      </svg>
+    </div>
+    
+    <div id="add-host-form" class="collapsible-content" style="display: none;">
+      <p class="section-description">Add a new SSH host to your infrastructure</p>
+      <form method="post" action="/add_host" class="modern-form">
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="name" class="form-label">Host Label</label>
+            <input name="name" id="name" placeholder="e.g., Production Web Server" required class="form-input">
+          </div>
+          
+          <div class="form-group">
+            <label for="host" class="form-label">IP Address / Hostname</label>
+            <input name="host" id="host" placeholder="192.168.1.100 or server.domain.com" required class="form-input">
+          </div>
+          
+          <div class="form-group">
+            <label for="username" class="form-label">SSH Username</label>
+            <input name="username" id="username" placeholder="root" required class="form-input">
+          </div>
+          
+          <div class="form-group">
+            <label for="password" class="form-label">SSH Password</label>
+            <input name="password" id="password" type="password" placeholder="••••••••" required class="form-input">
+          </div>
+          
+          <div class="form-group form-group-wide">
+            <label for="folder" class="form-label">
+              Organization Folder
+              <span class="tooltip">ℹ
+                <span class="tooltiptext">
+                  Organize hosts into folders using "/" as separator<br>
+                  <strong>Examples:</strong><br>
+                  • Production/Web<br>
+                  • Development/Database<br>
+                  • Staging/Cache/Redis
+                </span>
+              </span>
+            </label>
+            <input name="folder" id="folder" placeholder="Production/Web or Development/Database" class="form-input">
+          </div>
+        </div>
+        
+        <button type="submit" class="add-host-btn">
+          <svg class="button-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="16"/>
+            <line x1="8" y1="12" x2="16" y2="12"/>
+          </svg>
+          Add Host
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Quick Actions -->
+  <div class="actions-section">
+    <div class="section-header collapsible-header" onclick="toggleSection('quick-actions')">
+      <h3 class="section-title">
+        <svg class="section-icon toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12.5 2C13.3 2 14 2.7 14 3.5V5H16.5C17.3 5 18 5.7 18 6.5S17.3 8 16.5 8H14V9.5C14 10.3 13.3 11 12.5 11S11 10.3 11 9.5V8H9.5C8.7 8 8 7.3 8 6.5S8.7 5 9.5 5H11V3.5C11 2.7 11.7 2 12.5 2Z"/>
+        </svg>
+        Quick Actions
+      </h3>
+      <svg class="collapse-indicator" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="6,9 12,15 18,9"/>
+      </svg>
+    </div>
+    
+    <div id="quick-actions" class="collapsible-content" style="display: none;">
+      <div class="action-cards">
+        <a href="/export_hosts" class="action-card">
+          <div class="action-icon export">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+            </svg>
+          </div>
+          <div class="action-content">
+            <h4>Export Hosts</h4>
+            <p>Download your host configuration</p>
+          </div>
+        </a>
+        
+        <a href="/import_hosts" class="action-card">
+          <div class="action-icon import">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+            </svg>
+          </div>
+          <div class="action-content">
+            <h4>Import Hosts</h4>
+            <p>Upload CSV configuration file</p>
+          </div>
+        </a>
+        
+        <button class="action-card" onclick="openSftp()" title="Access SFTP Browser">
+          <div class="action-icon sftp">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
+            </svg>
+          </div>
+          <div class="action-content">
+            <h4>SFTP Browser</h4>
+            <p>Manage files across hosts</p>
+          </div>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Enhanced Host Management Section -->
+  <div class="hosts-section">
+    <div class="enhanced-treeview-container">
+      <!-- Tree View Header -->
+      <div class="treeview-header">
+        <div class="treeview-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 24px; height: 24px;">
+            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+            <line x1="8" y1="21" x2="16" y2="21"/>
+            <line x1="12" y1="17" x2="12" y2="21"/>
+          </svg>
+          Your Infrastructure
+          <span class="host-counter" id="hostCounter">0 hosts</span>
+        </div>
+        
+        <div class="treeview-controls">
+          <div class="search-container">
+            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"/>
+              <path d="m21 21-4.35-4.35"/>
+            </svg>
+            <input type="text" class="search-input" placeholder="Search hosts, IPs, or folders..." id="searchInput">
+          </div>
+          
+          <div class="view-controls">
+            <button class="view-toggle active" data-view="tree" title="Tree View">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;">
+                <path d="M3 3v18h18"/>
+                <path d="M7 12h10"/>
+                <path d="M7 8h7"/>
+                <path d="M7 16h13"/>
+              </svg>
+            </button>
+            <button class="view-toggle" data-view="compact" title="Compact View">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;">
+                <path d="M3 6h18"/>
+                <path d="M3 12h18"/>
+                <path d="M3 18h18"/>
+              </svg>
+            </button>
+            <button class="view-toggle" data-view="grid" title="Grid View">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;">
+                <rect x="3" y="3" width="7" height="7"/>
+                <rect x="14" y="3" width="7" height="7"/>
+                <rect x="14" y="14" width="7" height="7"/>
+                <rect x="3" y="14" width="7" height="7"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bulk Actions (Hidden by default) -->
+      <div class="bulk-actions" id="bulkActions">
+        <span id="selectedCount">0 selected</span>
+        <button class="bulk-action-btn" onclick="bulkTerminal()">
+          ⚡ Terminal
+        </button>
+        <button class="bulk-action-btn" onclick="bulkCommand()">
+          🚀 Execute
+        </button>
+        <button class="bulk-action-btn" onclick="bulkMove()">
+          📁 Move
+        </button>
+        <button class="bulk-action-btn delete" onclick="bulkDelete()">
+          🗑️ Delete
+        </button>
+      </div>
+
+      <!-- Tree View Content -->
+      <div class="treeview-content" id="treeviewContent">
+        <ul class="enhanced-treeview" id="enhancedTreeview">
+          <!-- This will be populated by JavaScript -->
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  // Enhanced Tree View Integration for Dashboard
+  class DashboardTreeView {
+    constructor() {
+      this.hosts = [];
+      this.filteredHosts = [];
+      this.selectedHosts = new Set();
+      this.pinnedHosts = new Set();
+      this.expandedFolders = new Set();
+      this.currentView = 'tree';
+      this.searchTerm = '';
+      
+      this.init();
+      this.loadHostsFromTemplate();
+    }
+
+    init() {
+      // Search functionality
+      document.getElementById('searchInput').addEventListener('input', (e) => {
+        this.searchTerm = e.target.value.toLowerCase();
+        this.filterHosts();
+        this.render();
+      });
+
+      // View toggles
+      document.querySelectorAll('.view-toggle').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          document.querySelectorAll('.view-toggle').forEach(b => b.classList.remove('active'));
+          e.target.closest('button').classList.add('active');
+          this.currentView = e.target.closest('button').dataset.view;
+          this.render();
+        });
+      });
+
+      // Keyboard shortcuts
+      document.addEventListener('keydown', (e) => {
+        if (e.ctrlKey || e.metaKey) {
+          switch(e.key) {
+            case 'f':
+              e.preventDefault();
+              document.getElementById('searchInput').focus();
+              break;
+            case 'a':
+              e.preventDefault();
+              this.selectAll();
+              break;
+          }
+        }
+      });
+
+      // Load pinned hosts from localStorage
+      const saved = localStorage.getItem('pinnedHosts');
+      if (saved) {
+        this.pinnedHosts = new Set(JSON.parse(saved));
+      }
+    }
+
+    loadHostsFromTemplate() {
+      // Convert flattened host list from template
+      this.hosts = {{ all_hosts_flat|tojson }};
+      
+      // Apply pinned status
+      this.hosts.forEach(host => {
+        host.pinned = this.pinnedHosts.has(host.id);
+      });
+
+      this.filteredHosts = [...this.hosts];
+      this.render();
+      this.updateHostCounter();
+    }
+
+    filterHosts() {
+      if (!this.searchTerm) {
+        this.filteredHosts = [...this.hosts];
+        return;
+      }
+
+      this.filteredHosts = this.hosts.filter(host => 
+        host.name.toLowerCase().includes(this.searchTerm) ||
+        host.host.toLowerCase().includes(this.searchTerm) ||
+        host.folder_path.toLowerCase().includes(this.searchTerm) ||
+        host.username.toLowerCase().includes(this.searchTerm)
+      );
+    }
+
+    render() {
+      const container = document.getElementById('enhancedTreeview');
+      
+      if (this.currentView === 'grid') {
+        this.renderGridView(container);
+      } else if (this.currentView === 'compact') {
+        this.renderCompactView(container);
+      } else {
+        this.renderTreeView(container);
+      }
+      
+      this.updateBulkActions();
+      this.updateHostCounter();
+    }
+
+    renderTreeView(container) {
+      // Reset all container styles
+      container.innerHTML = '';
+      container.className = 'enhanced-treeview';
+      container.style.display = '';
+      container.style.gridTemplateColumns = '';
+      container.style.gap = '';
+      container.style.padding = '';
+
+      if (this.filteredHosts.length === 0) {
+        container.innerHTML = this.renderEmptyState();
+        return;
+      }
+
+      // Build folder hierarchy
+      const folderTree = this.buildFolderTree();
+      
+      // Render the tree recursively
+      this.renderFolderNode(folderTree, container, '');
+    }
+
+    renderGridView(container) {
+      // Reset all container styles first
+      container.innerHTML = '';
+      container.className = 'grid-view';
+      container.style.display = 'grid';
+      container.style.gridTemplateColumns = 'repeat(auto-fill, minmax(300px, 1fr))';
+      container.style.gap = '1rem';
+      container.style.padding = '1rem';
+
+      if (this.filteredHosts.length === 0) {
+        container.innerHTML = this.renderEmptyState();
+        return;
+      }
+
+      // Sort hosts: pinned first, then alphabetically
+      const sortedHosts = [...this.filteredHosts].sort((a, b) => {
+        if (a.pinned && !b.pinned) return -1;
+        if (!a.pinned && b.pinned) return 1;
+        return a.name.localeCompare(b.name);
+      });
+
+      sortedHosts.forEach(host => {
+        const card = document.createElement('div');
+        card.className = 'host-card';
+        card.innerHTML = this.renderHostCard(host);
+        container.appendChild(card);
+      });
+    }
+
+    renderCompactView(container) {
+      // Reset all container styles first
+      container.innerHTML = '';
+      container.className = 'compact-view';
+      container.style.display = '';
+      container.style.gridTemplateColumns = '';
+      container.style.gap = '';
+      container.style.padding = '';
+      
+      if (this.filteredHosts.length === 0) {
+        container.innerHTML = this.renderEmptyState();
+        return;
+      }
+
+      const table = document.createElement('table');
+      table.className = 'compact-table';
+      table.innerHTML = `
+        <thead>
+          <tr>
+            <th width="30"><input type="checkbox" onchange="dashboardTreeView.toggleAllSelection(this.checked)"></th>
+            <th>Name</th>
+            <th>Host</th>
+            <th>User</th>
+            <th>Folder</th>
+            <th width="280">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${this.filteredHosts.map(host => this.renderCompactRow(host)).join('')}
+        </tbody>
+      `;
+      container.appendChild(table);
+    }
+
+    buildFolderTree() {
+      const root = { name: 'root', children: {}, hosts: [] };
+      
+      this.filteredHosts.forEach(host => {
+        const parts = host.folder_path.split('/').filter(p => p && p !== 'Ungrouped');
+        
+        let current = root;
+        let currentPath = '';
+        
+        // If no folder, add to root level "Ungrouped"
+        if (parts.length === 0) {
+          if (!current.children['Ungrouped']) {
+            current.children['Ungrouped'] = { name: 'Ungrouped', children: {}, hosts: [], path: 'Ungrouped' };
+          }
+          current.children['Ungrouped'].hosts.push(host);
+        } else {
+          // Navigate/create the folder structure
+          parts.forEach((part, index) => {
+            currentPath = currentPath ? `${currentPath}/${part}` : part;
+            
+            if (!current.children[part]) {
+              current.children[part] = { 
+                name: part, 
+                children: {}, 
+                hosts: [],
+                path: currentPath
+              };
+            }
+            current = current.children[part];
+          });
+          
+          current.hosts.push(host);
+        }
+      });
+      
+      return root;
+    }
+
+    renderFolderNode(node, container, path, level = 0) {
+      // Sort children to render folders with hosts first, then empty folders
+      const sortedChildren = Object.entries(node.children).sort(([nameA, childA], [nameB, childB]) => {
+        const hasHostsA = this.countHostsInFolder(childA) > 0;
+        const hasHostsB = this.countHostsInFolder(childB) > 0;
+        if (hasHostsA && !hasHostsB) return -1;
+        if (!hasHostsA && hasHostsB) return 1;
+        return nameA.localeCompare(nameB);
+      });
+
+      sortedChildren.forEach(([name, childNode]) => {
+        const folderPath = childNode.path || (path ? `${path}/${name}` : name);
+        const totalHosts = this.countHostsInFolder(childNode);
+        
+        if (totalHosts > 0) {
+          const folderLi = document.createElement('li');
+          folderLi.className = 'folder-node';
+          if (level > 0) {
+            folderLi.style.marginLeft = `${level * 20}px`;
+          }
+          
+          const isExpanded = this.expandedFolders.has(folderPath);
+          
+          // Create folder header
+          const folderHeader = document.createElement('div');
+          folderHeader.className = `folder-header ${isExpanded ? 'expanded' : ''}`;
+          folderHeader.dataset.folder = folderPath;
+          folderHeader.innerHTML = `
+            <svg class="folder-toggle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="9,18 15,12 9,6"/>
+            </svg>
+            <svg class="folder-icon" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M10 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2h-8l-2-2z"/>
+            </svg>
+            <div class="folder-info">
+              <span class="folder-name">${this.renderFolderPath(folderPath)}</span>
+              <div class="folder-stats">
+                <span class="stat-badge">${totalHosts} hosts</span>
+              </div>
+            </div>
+          `;
+          
+          // Add click event listener
+          folderHeader.addEventListener('click', () => this.toggleFolder(folderPath));
+          folderLi.appendChild(folderHeader);
+          
+          // Create hosts container
+          const hostsContainer = document.createElement('div');
+          hostsContainer.className = `hosts-container ${isExpanded ? 'expanded' : ''}`;
+          hostsContainer.dataset.folder = folderPath;
+          
+          // Add direct hosts
+          childNode.hosts.forEach(host => {
+            const hostDiv = document.createElement('div');
+            hostDiv.innerHTML = this.renderHost(host);
+            hostsContainer.appendChild(hostDiv.firstElementChild);
+          });
+          
+          // Add subfolders recursively
+          if (Object.keys(childNode.children).length > 0) {
+            const subfolderList = document.createElement('ul');
+            subfolderList.className = 'subfolder-list';
+            this.renderFolderNode(childNode, subfolderList, folderPath, level + 1);
+            hostsContainer.appendChild(subfolderList);
+          }
+          
+          folderLi.appendChild(hostsContainer);
+          container.appendChild(folderLi);
+        }
+      });
+    }
+
+    countHostsInFolder(node) {
+      let count = node.hosts.length;
+      Object.values(node.children).forEach(child => {
+        count += this.countHostsInFolder(child);
+      });
+      return count;
+    }
+
+    renderFolderPath(path) {
+      const parts = path.split('/');
+      return parts.map((part, index) => {
+        return `<span class="folder-part">${part}</span>`;
+      }).join('<span class="folder-separator">/</span>');
+    }
+
+    renderHostCard(host) {
+      const isSelected = this.selectedHosts.has(host.id);
+      const isPinned = host.pinned;
+      
+      return `
+        <div class="host-grid-card ${isPinned ? 'pinned' : ''}">
+          <div class="card-header">
+            <input type="checkbox" class="host-checkbox" ${isSelected ? 'checked' : ''} 
+                   onchange="dashboardTreeView.toggleHostSelection(${host.id})">
+            <h4 class="host-name">${host.name}</h4>
+            ${isPinned ? '<span class="pin-indicator">📌</span>' : ''}
+          </div>
+          <div class="card-body">
+            <div class="host-info-grid">
+              <span class="info-label">Host:</span>
+              <span class="info-value">${host.host}</span>
+              <span class="info-label">User:</span>
+              <span class="info-value">${host.username}</span>
+              <span class="info-label">Folder:</span>
+              <span class="info-value">${host.folder_path}</span>
+            </div>
+          </div>
+          <div class="card-actions">
+            <button class="grid-action" onclick="openPopup(${host.id}, '${host.name}', '${host.host}')" title="Quick Terminal">⚡</button>
+            <button class="grid-action" onclick="openTerminalOverlay(${host.id}, '${host.name}', '${host.host}')" title="Full Terminal">💻</button>
+            <button class="grid-action" onclick="openWeb('${host.host}')" title="Web Interface">🌐</button>
+            <button class="grid-action" onclick="openTD('${host.host}')" title="TD Interface">📊</button>
+            <button class="grid-action" onclick="openPort9090('${host.host}')" title="Moby Interface">🐳</button>
+            <button class="grid-action" onclick="openSftp('${host.host}', '${host.username}', '${host.password}')" title="SFTP Browser">📁</button>
+            <button class="grid-action" onclick="dashboardTreeView.togglePin(${host.id})" title="${isPinned ? 'Unpin' : 'Pin'}">
+              ${isPinned ? '📌' : '📍'}
+            </button>
+            <button class="grid-action" onclick="window.location.href='/edit_host?host_id=${host.id}'" title="Edit Host">✏️</button>
+            <form method="post" action="/delete_host" style="display:inline;">
+              <input type="hidden" name="host_id" value="${host.id}">
+              <button type="submit" class="grid-action delete" onclick="return confirm('Delete ${host.name}?')" title="Delete Host">🗑️</button>
+            </form>
+          </div>
+        </div>
+      `;
+    }
+
+    renderCompactRow(host) {
+      const isSelected = this.selectedHosts.has(host.id);
+      const isPinned = host.pinned;
+      
+      return `
+        <tr class="compact-row ${isPinned ? 'pinned' : ''}">
+          <td><input type="checkbox" class="host-checkbox" ${isSelected ? 'checked' : ''} 
+                 onchange="dashboardTreeView.toggleHostSelection(${host.id})"></td>
+          <td class="host-name">
+            ${host.name}
+            ${isPinned ? '<span class="pin-indicator">📌</span>' : ''}
+          </td>
+          <td class="host-ip">${host.host}</td>
+          <td class="host-user">${host.username}</td>
+          <td class="host-folder">${host.folder_path}</td>
+          <td class="compact-actions">
+            <button class="compact-action" onclick="openPopup(${host.id}, '${host.name}', '${host.host}')" title="Quick Terminal">⚡</button>
+            <button class="compact-action" onclick="openTerminalOverlay(${host.id}, '${host.name}', '${host.host}')" title="Full Terminal">💻</button>
+            <button class="compact-action" onclick="openWeb('${host.host}')" title="Web Interface">🌐</button>
+            <button class="compact-action" onclick="openTD('${host.host}')" title="TD Interface">📊</button>
+            <button class="compact-action" onclick="openPort9090('${host.host}')" title="Moby Interface">🐳</button>
+            <button class="compact-action" onclick="openSftp('${host.host}', '${host.username}', '${host.password}')" title="SFTP Browser">📁</button>
+            <button class="compact-action" onclick="dashboardTreeView.togglePin(${host.id})" title="${isPinned ? 'Unpin' : 'Pin'}">
+              ${isPinned ? '📌' : '📍'}
+            </button>
+            <button class="compact-action" onclick="window.location.href='/edit_host?host_id=${host.id}'" title="Edit Host">✏️</button>
+            <form method="post" action="/delete_host" style="display:inline;">
+              <input type="hidden" name="host_id" value="${host.id}">
+              <button type="submit" class="compact-action delete" onclick="return confirm('Delete ${host.name}?')" title="Delete Host">🗑️</button>
+            </form>
+          </td>
+        </tr>
+      `;
+    }
+
+    renderEmptyState() {
+      return `
+        <div class="empty-state">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/>
+            <path d="m21 21-4.35-4.35"/>
+          </svg>
+          <p>No hosts found matching "${this.searchTerm}"</p>
+          <small>Try adjusting your search criteria</small>
+        </div>
+      `;
+    }
+
+    renderHost(host) {
+      const isSelected = this.selectedHosts.has(host.id);
+      const isPinned = host.pinned;
+      
+      return `
+        <div class="host-node ${isSelected ? 'selected' : ''} ${isPinned ? 'pinned' : ''}" data-host-id="${host.id}">
+          <input type="checkbox" class="host-checkbox" ${isSelected ? 'checked' : ''} 
+                 onchange="dashboardTreeView.toggleHostSelection(${host.id})">
+          <svg class="host-icon" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M4,1H20A1,1 0 0,1 21,2V6A1,1 0 0,1 20,7H4A1,1 0 0,1 3,6V2A1,1 0 0,1 4,1M4,9H20A1,1 0 0,1 21,10V14A1,1 0 0,1 20,15H4A1,1 0 0,1 3,14V10A1,1 0 0,1 4,9M4,17H20A1,1 0 0,1 21,18V22A1,1 0 0,1 20,23H4A1,1 0 0,1 3,22V18A1,1 0 0,1 4,17M5,2V6H19V2H5M5,10V14H19V10H5M5,18V22H19V18H5M7,4V4.5H9V4H7M7,12V12.5H9V12H7M7,20V20.5H9V20H7Z"/>
+          </svg>
+          <div class="host-info">
+            <div class="host-name">${host.name}</div>
+            <div class="host-details">
+              <span class="host-ip">${host.host}</span>
+              <span class="host-user">${host.username}</span>
+            </div>
+          </div>
+          <div class="host-actions">
+            <button class="emoji-action" onclick="openPopup(${host.id}, '${host.name}', '${host.host}')" title="Quick Terminal">⚡</button>
+            <button class="emoji-action" onclick="openWeb('${host.host}')" title="Web Interface">🌐</button>
+            <button class="emoji-action" onclick="openTD('${host.host}')" title="TD Interface">📊</button>
+            <button class="emoji-action" onclick="openPort9090('${host.host}')" title="Moby Interface">🐳</button>
+            <button class="emoji-action" onclick="openSftp('${host.host}', '${host.username}', '${host.password}')" title="SFTP Browser">📁</button>
+            <button class="emoji-action" onclick="openTerminalOverlay(${host.id}, '${host.name}', '${host.host}')" title="Full Terminal">💻</button>
+            <button class="emoji-action ${isPinned ? 'pinned' : ''}" onclick="dashboardTreeView.togglePin(${host.id})" title="${isPinned ? 'Unpin' : 'Pin'}">
+              ${isPinned ? '📌' : '📍'}
+            </button>
+            <button class="emoji-action" onclick="window.location.href='/edit_host?host_id=${host.id}'" title="Edit Host">✏️</button>
+            
+            <!-- Delete button -->
+            <form method="post" action="/delete_host" style="display:inline;">
+              <input type="hidden" name="host_id" value="${host.id}">
+              <button type="submit" class="emoji-action delete" onclick="return confirm('Delete ${host.name}?')" title="Delete Host">🗑️</button>
+            </form>
+          </div>
+        </div>
+      `;
+    }
+
+    toggleFolder(folderName) {
+      if (this.expandedFolders.has(folderName)) {
+        this.expandedFolders.delete(folderName);
+      } else {
+        this.expandedFolders.add(folderName);
+      }
+      this.render();
+    }
+
+    toggleHostSelection(hostId) {
+      if (this.selectedHosts.has(hostId)) {
+        this.selectedHosts.delete(hostId);
+      } else {
+        this.selectedHosts.add(hostId);
+      }
+      this.updateBulkActions();
+    }
+
+    toggleAllSelection(checked) {
+      if (checked) {
+        this.filteredHosts.forEach(host => {
+          this.selectedHosts.add(host.id);
+        });
+      } else {
+        this.selectedHosts.clear();
+      }
+      this.render();
+    }
+
+    togglePin(hostId) {
+      const host = this.hosts.find(h => h.id === hostId);
+      if (host) {
+        host.pinned = !host.pinned;
+        if (host.pinned) {
+          this.pinnedHosts.add(hostId);
+        } else {
+          this.pinnedHosts.delete(hostId);
+        }
+        
+        // Save to localStorage
+        localStorage.setItem('pinnedHosts', JSON.stringify([...this.pinnedHosts]));
+        this.render();
+      }
+    }
+
+    selectAll() {
+      this.filteredHosts.forEach(host => {
+        this.selectedHosts.add(host.id);
+      });
+      this.render();
+    }
+
+    updateBulkActions() {
+      const bulkActions = document.getElementById('bulkActions');
+      const selectedCount = document.getElementById('selectedCount');
+      
+      if (this.selectedHosts.size > 0) {
+        bulkActions.classList.add('visible');
+        selectedCount.textContent = `${this.selectedHosts.size} selected`;
+      } else {
+        bulkActions.classList.remove('visible');
+      }
+    }
+
+    updateHostCounter() {
+      const counter = document.getElementById('hostCounter');
+      const totalCounter = document.getElementById('total-hosts-count');
+      
+      if (counter) {
+        counter.textContent = `${this.filteredHosts.length} hosts`;
+      }
+      
+      if (totalCounter) {
+        totalCounter.textContent = this.hosts.length;
+      }
+    }
+  }
+
+  // Initialize the enhanced tree view when DOM is ready
+  document.addEventListener('DOMContentLoaded', function() {
+    window.dashboardTreeView = new DashboardTreeView();
+  });
+
+  // Bulk operation functions
+  function bulkTerminal() {
+    const selectedHosts = Array.from(dashboardTreeView.selectedHosts);
+    selectedHosts.forEach(hostId => {
+      const host = dashboardTreeView.hosts.find(h => h.id === hostId);
+      if (host) {
+        openPopup(host.id, host.name, host.host);
+      }
+    });
+    dashboardTreeView.selectedHosts.clear();
+    dashboardTreeView.updateBulkActions();
+  }
+
+  function bulkCommand() {
+    const selectedHosts = Array.from(dashboardTreeView.selectedHosts);
+    const hostList = selectedHosts.map(hostId => {
+      const host = dashboardTreeView.hosts.find(h => h.id === hostId);
+      return host ? host.host : null;
+    }).filter(Boolean);
+    
+    // Redirect to MultiExec with pre-populated hosts
+    const url = `/portal?hosts=${encodeURIComponent(hostList.join(','))}`;
+    window.open(url, '_blank');
+  }
+
+  function bulkMove() {
+    const selectedHosts = Array.from(dashboardTreeView.selectedHosts);
+    const newFolder = prompt('Enter new folder path (e.g., Production/Web):');
+    
+    if (newFolder !== null) {
+      // Implement bulk move logic - you'll need to create this endpoint
+      console.log('Moving hosts to folder:', newFolder, selectedHosts);
+      // Example: POST to /api/bulk_move with {hosts: selectedHosts, folder: newFolder}
+    }
+  }
+
+  function bulkDelete() {
+    const selectedHosts = Array.from(dashboardTreeView.selectedHosts);
+    if (confirm(`Delete ${selectedHosts.length} selected hosts? This action cannot be undone.`)) {
+      // Implement bulk delete logic
+      selectedHosts.forEach(hostId => {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/delete_host';
+        form.style.display = 'none';
+        
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'host_id';
+        input.value = hostId;
+        
+        form.appendChild(input);
+        document.body.appendChild(form);
+        form.submit();
+      });
+    }
+  }
+  </script>
+
+  <!-- Admin Section -->
+  {% if user.is_admin %}
+    <div class="admin-section">
+      <div class="section-header">
+        <h3 class="section-title">
+          <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+            <circle cx="8.5" cy="7" r="4"/>
+            <line x1="20" y1="8" x2="20" y2="14"/>
+            <line x1="23" y1="11" x2="17" y2="11"/>
+          </svg>
+          User Management
+        </h3>
+        <p class="section-description">Manage system users and permissions</p>
+      </div>
+
+      <div class="users-list">
+        {% for u in users %}
+          <div class="user-card">
+            <div class="user-info">
+              <div class="user-avatar">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
+                  <circle cx="12" cy="7" r="4"/>
+                </svg>
+              </div>
+              <div class="user-details">
+                <h4 class="user-name">{{ u["username"] }}</h4>
+                <span class="user-role">
+                  {% if u["is_admin"] %}
+                    <span class="admin-badge">Administrator</span>
+                  {% else %}
+                    <span class="user-badge">User</span>
+                  {% endif %}
+                </span>
+              </div>
+            </div>
+            {% if u["id"] != user.id %}
+              <form method="post" action="/delete_user" style="display:inline;">
+                <input type="hidden" name="user_id" value="{{ u['id'] }}">
+                <button type="submit" class="delete-user-btn" onclick="return confirm('Delete user {{ u.username }}?')">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="3,6 5,6 21,6"/>
+                    <path d="M19,6V20a2,2 0 01-2,2H7a2,2 0 01-2-2V6M8,6V4a2,2 0 012-2h4a2,2 0 012,2V6"/>
+                  </svg>
+                </button>
+              </form>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+
+  <!-- Terminal Overlay -->
+  <div id="terminal-overlay" class="overlay">
+    <div id="terminal-panel" class="modal">
+      <button id="close-terminal">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+        Close Terminal
+      </button>
+      <div id="terminal"></div>
+    </div>
+  </div>
+
+  <script>
+    // Toggle collapsible sections
+    function toggleSection(sectionId) {
+      const content = document.getElementById(sectionId);
+      const header = event.currentTarget;
+      
+      if (content.style.display === 'none') {
+        content.style.display = 'block';
+        content.classList.add('show');
+        header.classList.add('active');
+      } else {
+        content.classList.remove('show');
+        header.classList.remove('active');
+        setTimeout(() => {
+          content.style.display = 'none';
+        }, 300);
+      }
+    }
+
+    // Count total hosts - Updated to work with enhanced tree view
+    function countTotalHosts() {
+      // This will be updated by the enhanced tree view automatically
+      // The enhanced tree view updates the counter itself
+      const countElement = document.getElementById('total-hosts-count');
+      if (countElement && window.dashboardTreeView) {
+        countElement.textContent = window.dashboardTreeView.hosts.length;
+      }
+    }
+
+    // Initialize host count when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+      // Wait for tree view to load, then update counter
+      setTimeout(() => {
+        if (window.dashboardTreeView) {
+          document.getElementById('total-hosts-count').textContent = window.dashboardTreeView.hosts.length;
+        }
+      }, 1000);
+    });
+  </script>
+{% endblock %}

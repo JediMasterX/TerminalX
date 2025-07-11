@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block content %}
+  <h2>Import Hosts</h2>
+  <form method="post" action="/import_hosts" enctype="multipart/form-data">
+    <input type="file" name="file" accept=".csv" required>
+    <button type="submit">Upload CSV</button>
+  </form>
+  <p><a href="/dashboard">← Back to Dashboard</a></p>
+{% endblock %}

@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+{% block content %}
+<body class="fileuploader-page">
+  <div class="tool-header">
+    <h1 class="tool-title">
+      <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+        <polyline points="7,10 12,15 17,10"/>
+        <line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+      FileUploader
+    </h1>
+    <p class="tool-description">Upload files to multiple hosts simultaneously</p>
+  </div>
+
+  <div class="controls-section">
+    <div class="control-grid">
+      <div class="control-group">
+        <label for="hostRange" class="control-label">Target Hosts</label>
+        <input id="hostRange" placeholder="192.168.1.1-20 or comma-separated IPs" class="control-input"/>
+        <input type="hidden" id="hostListHidden" />
+      </div>
+      
+      <div class="control-group">
+        <label for="ipFileInput" class="control-label">Upload Host File</label>
+        <input type="file" id="ipFileInput" accept=".txt" class="control-file"/>
+      </div>
+      
+      <div class="control-group">
+        <label for="remotePath" class="control-label">Remote Path</label>
+        <input type="text" id="remotePath" placeholder="/tmp/uploads" value="/tmp/uploads" class="control-input"/>
+      </div>
+      
+      <div class="control-group">
+        <label for="sshUser" class="control-label">SSH Username</label>
+        <input id="sshUser" placeholder="username" value="{{ default_username or 'root' }}" class="control-input"/>
+      </div>
+      
+      <div class="control-group">
+        <label for="sshPass" class="control-label">SSH Password</label>
+        <input id="sshPass" type="password" placeholder="password" class="control-input"/>
+      </div>
+      
+      <div class="control-group control-group-wide">
+        <label for="fileUpload" class="control-label">File to Upload</label>
+        <input type="file" id="fileUpload" class="control-file"/>
+      </div>
+    </div>
+    
+    <div class="action-buttons">
+      <button type="button" id="uploadBtn" class="action-btn primary">
+        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+          <polyline points="17,8 12,3 7,8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        Upload File
+      </button>
+    </div>
+  </div>
+
+  <!-- Ubuntu Terminal Output -->
+  <div class="exec-terminal" id="upload-output-container">
+    <pre id="uploadOutput" class="terminal-content"></pre>
+  </div>
+
+  <script src="/static/js/file_uploader.js"></script>
+</body>
+{% endblock %}

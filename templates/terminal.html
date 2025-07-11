@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <!-- Updated header to echo the host info too -->
+  <h2>Terminal Session – {{ host_name }} ({{ host_addr }})</h2>
+
+  <div id="terminal"></div>
+
+  <script>
+    // Pass hostId into your terminal.js
+    const hostId = {{ host_id }};
+  </script>
+{% endblock %}

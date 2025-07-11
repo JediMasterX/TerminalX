@@ -1,0 +1,244 @@
+{% extends 'base.html' %}
+{% block content %}
+<body class="scriptexec-page">
+  <div class="tool-header">
+    <h1 class="tool-title">
+      <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+        <polyline points="14,2 14,8 20,8"/>
+        <line x1="16" y1="13" x2="8" y2="13"/>
+        <line x1="16" y1="17" x2="8" y2="17"/>
+        <polyline points="10,9 9,9 8,9"/>
+      </svg>
+      ScriptExec
+    </h1>
+    <p class="tool-description">Upload and execute scripts across multiple hosts</p>
+  </div>
+
+  <div class="controls-section">
+    <div class="control-grid">
+      <div class="control-group">
+        <label for="hostRange" class="control-label">Target Hosts</label>
+        <input id="hostRange" placeholder="192.168.1.1-20 or use file upload" class="control-input"/>
+      </div>
+      
+      <div class="control-group">
+        <label for="hostFile" class="control-label">Upload Host File</label>
+        <input type="file" id="hostFile" accept=".txt" class="control-file"/>
+      </div>
+      
+      <div class="control-group">
+        <label for="sshUser" class="control-label">SSH Username</label>
+        <input id="sshUser" placeholder="username" value="{{ default_username or 'cix_user' }}" class="control-input"/>
+      </div>
+      
+      <div class="control-group">
+        <label for="sshPass" class="control-label">SSH Password</label>
+        <input id="sshPass" type="password" placeholder="password" class="control-input"/>
+      </div>
+      
+      <div class="control-group control-group-wide">
+        <label for="scriptFile" class="control-label">Script File to Execute</label>
+        <input type="file" id="scriptFile" accept=".sh,.bash,.py,.pl" class="control-file"/>
+      </div>
+      
+      <div class="control-group">
+        <label class="checkbox-group">
+          <input type="checkbox" id="runSudo" class="control-checkbox"/>
+          <span class="checkbox-label">Run with sudo privileges</span>
+        </label>
+      </div>
+    </div>
+    
+    <div class="action-buttons">
+      <button type="button" id="uploadRunBtn" class="action-btn primary">
+        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+          <polyline points="17,8 12,3 7,8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        Upload & Execute Script
+      </button>
+      <button type="button" id="stopScriptBtn" class="action-btn secondary">
+        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="6" y="6" width="12" height="12"/>
+        </svg>
+        Stop Execution
+      </button>
+      <button type="button" id="exportScriptBtn" class="action-btn tertiary">
+        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+        </svg>
+        Export Log
+      </button>
+    </div>
+  </div>
+
+  <!-- Ubuntu Terminal Output -->
+  <div class="exec-terminal" id="script-output-container">
+    <pre id="scriptOutput" class="terminal-content"></pre>
+  </div>
+
+  <style>
+    .tool-header {
+      margin-bottom: 2rem;
+      text-align: center;
+    }
+
+    .tool-title {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      font-size: 2rem;
+      font-weight: 700;
+      margin: 0 0 0.5rem 0;
+      color: var(--text-primary);
+    }
+
+    .tool-icon {
+      width: 32px;
+      height: 32px;
+      color: var(--accent-green);
+    }
+
+    .tool-description {
+      color: var(--text-secondary);
+      margin: 0;
+      font-size: 1.1rem;
+    }
+
+    .controls-section {
+      background: var(--secondary-bg);
+      padding: 2rem;
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-color);
+      margin-bottom: 1rem;
+    }
+
+    .control-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .control-group-wide {
+      grid-column: 1 / -1;
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .control-label {
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .control-input, .control-file {
+      padding: 12px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-color);
+      background: var(--tertiary-bg);
+      color: var(--text-primary);
+      font-size: 1rem;
+      transition: all 0.2s ease;
+    }
+
+    .control-input:focus, .control-file:focus {
+      border-color: var(--accent-blue);
+      box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.1);
+    }
+
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      margin-top: 0.5rem;
+    }
+
+    .control-checkbox {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--accent-blue);
+    }
+
+    .checkbox-label {
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    .action-buttons {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .action-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 20px;
+      border-radius: var(--radius-md);
+      border: none;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-size: 1rem;
+    }
+
+    .action-btn.primary {
+      background: linear-gradient(135deg, var(--accent-green) 0%, #2ea043 100%);
+      color: white;
+    }
+
+    .action-btn.secondary {
+      background: linear-gradient(135deg, var(--accent-orange) 0%, #da3633 100%);
+      color: white;
+    }
+
+    .action-btn.tertiary {
+      background: var(--tertiary-bg);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+    }
+
+    .action-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+    }
+
+    .btn-icon {
+      width: 18px;
+      height: 18px;
+    }
+
+    .terminal-content {
+      margin: 0;
+      padding: 0;
+      font-family: 'Ubuntu Mono', monospace;
+      color: #ffffff;
+    }
+
+    /* Responsive design */
+    @media (max-width: 768px) {
+      .control-grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .action-buttons {
+        flex-direction: column;
+      }
+    }
+  </style>
+
+  <script src="/static/js/script_exec.js"></script>
+</body>
+{% endblock %}

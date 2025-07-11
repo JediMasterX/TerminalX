@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block content %}
+  <h2>Edit Host – {{ host["name"] }}</h2>
+
+  <form method="post" action="/edit_host">
+    <input type="hidden" name="host_id" value="{{ host['id'] }}">
+
+    <label>
+      Label:<br>
+      <input type="text" name="name" value="{{ host['name'] }}" required>
+    </label><br>
+
+    <label>
+      IP or Hostname:<br>
+      <input type="text" name="host" value="{{ host['host'] }}" required>
+    </label><br>
+
+    <label>
+      SSH Username:<br>
+      <input type="text" name="username" value="{{ host['username'] }}" required>
+    </label><br>
+
+    <label>
+      SSH Password:<br>
+      <input type="password" name="password" value="{{ host['password'] }}" required>
+    </label><br>
+
+    <label>
+      Folder/Subfolder (optional):<br>
+      <input type="text" name="folder" value="{{ host['folder'] }}">
+      <span class="tooltip">ℹ
+        <span class="tooltiptext">
+          Enter a path separated by “/”, e.g.<br>
+          <strong>Prod/Web</strong> or <strong>Dev/Cache/Redis</strong>
+        </span>
+      </span>
+    </label><br><br>
+
+    <button type="submit">Save Changes</button>
+    <a href="/dashboard"><button type="button">Cancel</button></a>
+  </form>
+{% endblock %}

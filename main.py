@@ -8,11 +8,11 @@ from fastapi.templating import Jinja2Templates
 from fastapi.responses import RedirectResponse, JSONResponse
 import auth, dashboard, terminal
 from dashboard import get_current_user
-from routers.multi_exec    import router as multi_exec_router
-from routers.script_exec   import router as script_exec_router
-from routers.range_gen     import router as range_gen_router
-from routers.shutdown      import router as shutdown_router
-from routers.file_uploader import router as file_uploader
+from routes.multi_exec    import router as multi_exec_router
+from routes.script_exec   import router as script_exec_router
+from routes.range_gen     import router as range_gen_router
+from routes.shutdown      import router as shutdown_router
+from routes.file_uploader import router as file_uploader
 
 app = FastAPI()
 app.add_middleware(SessionMiddleware, secret_key="CHANGE_THIS_SECRET")

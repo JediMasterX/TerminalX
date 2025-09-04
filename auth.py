@@ -43,11 +43,20 @@ async def register_post(request: Request,
                         password: str = Form(...)):
     conn = db.get_db()
     cursor = conn.cursor()
+    # Canonicalize username to lowercase (case-insensitive policy)
+    username_norm = (username or "").strip().lower()
     hashed = pwd_context.hash(password)
+    # Proactively check for duplicates case-insensitively to avoid mixed-case dupes
+    cursor.execute("SELECT id FROM users WHERE lower(trim(username)) = lower(trim(?))", (username_norm,))
+    if cursor.fetchone():
+        return templates.TemplateResponse("register.html", {
+            "request": request,
+            "error": "Username already taken"
+        })
     try:
         cursor.execute(
             "INSERT INTO users (username, hashed_password) VALUES (?, ?)",
-            (username, hashed)
+            (username_norm, hashed)
         )
         conn.commit()
     except sqlite3.IntegrityError:
@@ -69,7 +78,8 @@ async def login_post(request: Request,
                      password: str = Form(...)):
     conn = db.get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
+    # Case-insensitive username match
+    cursor.execute("SELECT * FROM users WHERE lower(trim(username)) = lower(trim(?))", ((username or "").strip(),))
     user = cursor.fetchone()
     if not user or not pwd_context.verify(password, user["hashed_password"]):
         return templates.TemplateResponse("login.html", {

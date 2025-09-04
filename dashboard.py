@@ -130,10 +130,21 @@ async def add_host(request: Request,
 
     conn = db.get_db()
     cursor = conn.cursor()
+    # Defensive: prevent duplicate hosts per user (case/whitespace insensitive)
+    norm_host = (host or "").strip()
+    cursor.execute(
+        "SELECT 1 FROM hosts WHERE user_id = ? AND lower(trim(host)) = lower(trim(?))",
+        (user["id"], norm_host)
+    )
+    exists = cursor.fetchone()
+    if exists:
+        # Skip inserting duplicate and just return to dashboard
+        return RedirectResponse("/dashboard", status_code=302)
+
     cursor.execute(
         "INSERT INTO hosts (user_id, name, host, username, password, folder) "
         "VALUES (?, ?, ?, ?, ?, ?)",
-        (user["id"], name, host, username, password, folder.strip())
+        (user["id"], name, norm_host, username, password, folder.strip())
     )
     conn.commit()
     return RedirectResponse("/dashboard", status_code=302)
@@ -272,18 +283,41 @@ async def import_hosts_post(request: Request, file: UploadFile = File(...)):
     reader = csv.DictReader(StringIO(content))
     conn = db.get_db()
     cursor = conn.cursor()
+    # Preload existing hosts for this user for fast duplicate checking
+    cursor.execute("SELECT lower(trim(host)) AS h FROM hosts WHERE user_id = ?", (user["id"],))
+    existing = {row["h"] for row in cursor.fetchall() if row["h"] is not None}
+    inserted = 0
+    skipped = 0
     for row in reader:
+        name_v = (row.get("name", "") or "").strip()
+        host_v = (row.get("host", "") or "").strip()
+        username_v = (row.get("username", "") or "").strip()
+        password_v = (row.get("password", "") or "").strip()
+        folder_v = (row.get("folder", "") or "").strip()
+
+        # Skip blank host rows
+        if not host_v:
+            skipped += 1
+            continue
+
+        key = host_v.lower()
+        if key in existing:
+            skipped += 1
+            continue
+
         cursor.execute(
             "INSERT INTO hosts (user_id, name, host, username, password, folder) "
             "VALUES (?, ?, ?, ?, ?, ?)",
             (
                 user["id"],
-                row.get("name", "").strip(),
-                row.get("host", "").strip(),
-                row.get("username", "").strip(),
-                row.get("password", "").strip(),
-                row.get("folder", "").strip()
+                name_v,
+                host_v,
+                username_v,
+                password_v,
+                folder_v
             )
         )
+        existing.add(key)
+        inserted += 1
     conn.commit()
     return RedirectResponse("/dashboard", status_code=302)

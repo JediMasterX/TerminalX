@@ -208,6 +208,48 @@ async def delete_host(request: Request, host_id: int = Form(...)):
     return RedirectResponse("/dashboard", status_code=302)
 
 
+@router.post("/bulk_delete_hosts")
+async def bulk_delete_hosts(request: Request):
+    """Delete multiple hosts in a single request.
+    Expects JSON body: { "host_ids": [1,2,3] }
+    Restricts deletion to the current user unless admin.
+    """
+    user = get_current_user(request)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+
+    try:
+        body = await request.json()
+        host_ids = body.get("host_ids", [])
+        # Normalize to integers and de-duplicate
+        host_ids = list({int(h) for h in host_ids}) if host_ids else []
+    except Exception:
+        host_ids = []
+
+    if not host_ids:
+        # Nothing to delete; return JSON ok to allow client to refresh
+        from fastapi.responses import JSONResponse
+        return JSONResponse({"deleted": 0})
+
+    conn = db.get_db()
+    cursor = conn.cursor()
+
+    placeholders = ",".join(["?"] * len(host_ids))
+    if user["is_admin"]:
+        cursor.execute(f"DELETE FROM hosts WHERE id IN ({placeholders})", host_ids)
+    else:
+        # Restrict to current user's hosts
+        cursor.execute(
+            f"DELETE FROM hosts WHERE user_id = ? AND id IN ({placeholders})",
+            [user["id"], *host_ids]
+        )
+    deleted_count = cursor.rowcount if hasattr(cursor, "rowcount") else 0
+    conn.commit()
+
+    from fastapi.responses import JSONResponse
+    return JSONResponse({"deleted": deleted_count})
+
+
 @router.post("/delete_user")
 async def delete_user(request: Request, user_id: int = Form(...)):
     user = get_current_user(request)

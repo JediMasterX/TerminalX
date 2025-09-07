@@ -780,24 +780,23 @@
 
   function bulkDelete() {
     const selectedHosts = Array.from(dashboardTreeView.selectedHosts);
-    if (confirm(`Delete ${selectedHosts.length} selected hosts? This action cannot be undone.`)) {
-      // Implement bulk delete logic
-      selectedHosts.forEach(hostId => {
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = '/delete_host';
-        form.style.display = 'none';
-        
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = 'host_id';
-        input.value = hostId;
-        
-        form.appendChild(input);
-        document.body.appendChild(form);
-        form.submit();
-      });
-    }
+    if (selectedHosts.length === 0) return;
+    if (!confirm(`Delete ${selectedHosts.length} selected hosts? This action cannot be undone.`)) return;
+
+    // Single request to backend to avoid navigation interrupts
+    fetch('/bulk_delete_hosts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ host_ids: selectedHosts })
+    })
+    .then(res => res.ok ? res.json() : Promise.reject(res))
+    .then(() => {
+      // Refresh UI after deletion
+      window.location.reload();
+    })
+    .catch(() => {
+      alert('Failed to delete selected hosts.');
+    });
   }
   </script>
 

@@ -660,12 +660,36 @@
     }
 
     toggleFolder(folderName) {
-      if (this.expandedFolders.has(folderName)) {
-        this.expandedFolders.delete(folderName);
-      } else {
+      const willExpand = !this.expandedFolders.has(folderName);
+      if (willExpand) {
         this.expandedFolders.add(folderName);
+      } else {
+        this.expandedFolders.delete(folderName);
       }
-      this.render();
+
+      // In-place toggle to avoid full re-render jitter
+      const header = document.querySelector(`.folder-header[data-folder="${folderName}"]`);
+      const container = document.querySelector(`.hosts-container[data-folder="${folderName}"]`);
+      if (header && container) {
+        header.classList.toggle('expanded', willExpand);
+        if (willExpand) {
+          // Measure content height for smooth, non-clipping expansion
+          container.classList.add('expanded');
+          container.style.maxHeight = container.scrollHeight + 'px';
+        } else {
+          // Collapse smoothly and then clean styles
+          container.style.maxHeight = '0px';
+          container.addEventListener('transitionend', function handler(e) {
+            if (e.propertyName === 'max-height') {
+              container.classList.remove('expanded');
+              container.removeEventListener('transitionend', handler);
+            }
+          });
+        }
+      } else {
+        // Fallback: re-render if nodes not found (e.g., after drastic state change)
+        this.render();
+      }
     }
 
     toggleHostSelection(hostId) {

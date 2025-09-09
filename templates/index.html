@@ -71,9 +71,18 @@
     </div>
   </div>
 
-  <!-- Ubuntu Terminal Output -->
-  <div class="exec-terminal" id="output-container">
-    <pre id="output" class="terminal-content"></pre>
+  <!-- Live Output Panel (collapsed by default) -->
+  <div class="output-panel collapsed" id="output-panel">
+    <button type="button" class="output-toggle" id="output-toggle" aria-expanded="false">
+      <span class="toggle-icon" id="output-toggle-icon">▸</span>
+      <span class="toggle-title">Live Output</span>
+      <span class="toggle-count" id="output-summary"></span>
+    </button>
+    <div class="output-body">
+      <div class="exec-terminal clean-theme" id="output-container">
+        <div id="output" class="terminal-content"></div>
+      </div>
+    </div>
   </div>
 
 </body>

@@ -3330,3 +3330,32 @@ textarea:focus {
   gap: unset !important;
   padding: unset !important;
 }
+/* MultiExec host output sections */
+.host-section { border: 1px solid var(--border-color); border-radius: var(--radius-sm); margin: 8px 0; background: var(--secondary-bg); }
+.host-header { display:flex; justify-content:flex-start; align-items:center; padding: 6px 10px; border-bottom: 1px solid var(--border-color); gap: 8px; flex-wrap: wrap; }
+.host-title { font-weight: 600; color: var(--text-primary); }
+.badge { font-size: 0.85rem; padding: 2px 8px; border-radius: 999px; background: var(--tertiary-bg); color: var(--text-secondary); border: 1px solid var(--border-color); }
+.host-output { margin: 0; padding: 8px 10px; max-height: 260px; overflow: auto; white-space: pre-wrap; word-break: break-word; }
+
+/* Output Panel (collapsed/expanded) */
+.output-panel { border: 1px solid var(--border-color); border-radius: var(--radius-md); background: var(--secondary-bg); margin-top: 1rem; overflow: hidden; }
+.output-toggle { width: 100%; text-align: left; display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: var(--tertiary-bg); border: 0; border-bottom: 1px solid var(--border-color); color: var(--text-primary); cursor: pointer; }
+.output-toggle .toggle-icon { width: 16px; display: inline-block; }
+.output-toggle .toggle-title { font-weight: 600; }
+.output-toggle .toggle-count { margin-left: 12px; font-size: 0.85rem; color: var(--text-secondary); }
+.output-body { max-height: 0; overflow: hidden; transition: max-height 0.2s ease; }
+.output-panel:not(.collapsed) .output-body { max-height: 50vh; }
+
+/* Clean theme for exec-terminal (remove Ubuntu-like look) */
+.exec-terminal.clean-theme { background: var(--secondary-bg); border: 1px solid var(--border-color); border-radius: var(--radius-sm); position: relative; }
+.exec-terminal.clean-theme::before,
+.exec-terminal.clean-theme::after { display: none !important; }
+.exec-terminal.clean-theme pre { padding-top: 8px !important; }
+
+/* Status badge sizes and colors */
+.badge.status-connecting { background: var(--tertiary-bg); color: var(--text-secondary); font-size: 0.78rem; }
+.badge.status-running { background: rgba(100, 108, 255, 0.15); color: var(--accent-blue); font-size: 0.72rem; animation: none; }
+.badge.status-ok { background: rgba(16, 185, 129, 0.15); color: var(--accent-green); font-size: 0.78rem; }
+.badge.status-failed { background: rgba(248, 81, 73, 0.15); color: var(--accent-orange); font-size: 0.78rem; }
+.badge.status-error { background: rgba(248, 81, 73, 0.15); color: var(--accent-orange); font-size: 0.78rem; }
+.badge.status-stopped { background: rgba(139, 148, 158, 0.15); color: var(--text-secondary); font-size: 0.78rem; }

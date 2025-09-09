@@ -1,9 +1,11 @@
-from fastapi import APIRouter, Request, Form, UploadFile, File
-from fastapi.responses import RedirectResponse, StreamingResponse
+from fastapi import APIRouter, Request, Form, UploadFile, File, HTTPException
+from fastapi.responses import RedirectResponse, StreamingResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
 import db, csv
 from io import StringIO
+from pydantic import BaseModel
+from typing import List
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
@@ -321,3 +323,44 @@ async def import_hosts_post(request: Request, file: UploadFile = File(...)):
         inserted += 1
     conn.commit()
     return RedirectResponse("/dashboard", status_code=302)
+
+
+# ── Bulk operations ─────────────────────────────────────────────────────
+class BulkDeleteRequest(BaseModel):
+    host_ids: List[int]
+
+
+@router.post("/bulk_delete_hosts")
+async def bulk_delete_hosts(request: Request, payload: BulkDeleteRequest):
+    user = get_current_user(request)
+    if not user:
+        raise HTTPException(status_code=401)
+
+    ids = [int(hid) for hid in (payload.host_ids or []) if isinstance(hid, (int, str))]
+    if not ids:
+        return JSONResponse({"deleted": 0, "skipped": 0, "detail": "no ids"})
+
+    conn = db.get_db()
+    cursor = conn.cursor()
+
+    # Filter IDs the user is allowed to delete
+    q_marks = ",".join(["?"] * len(ids))
+    cursor.execute(f"SELECT id, user_id FROM hosts WHERE id IN ({q_marks})", tuple(ids))
+    rows = cursor.fetchall()
+
+    allowed_ids = []
+    skipped = 0
+    for r in rows:
+        if user["is_admin"] or r["user_id"] == user["id"]:
+            allowed_ids.append(r["id"])
+        else:
+            skipped += 1
+
+    deleted = 0
+    if allowed_ids:
+        q2 = ",".join(["?"] * len(allowed_ids))
+        cursor.execute(f"DELETE FROM hosts WHERE id IN ({q2})", tuple(allowed_ids))
+        conn.commit()
+        deleted = cursor.rowcount if cursor.rowcount is not None else len(allowed_ids)
+
+    return JSONResponse({"deleted": deleted, "skipped": skipped})

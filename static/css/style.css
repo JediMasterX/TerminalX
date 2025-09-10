@@ -272,12 +272,12 @@
 
 /* Ensure proper expansion animation for nested folders */
 .hosts-container {
-  transition: all 0.3s ease;
   overflow: hidden;
-}
-
-.hosts-container:not(.expanded) {
-  display: none !important;
+  max-height: 0;
+  opacity: 0;
+  transition: max-height 0.25s ease, opacity 0.25s ease;
+  will-change: max-height, opacity;
+  contain: layout paint;
 }
 
 /* Folder path styling improvements */
@@ -1326,27 +1326,17 @@ button:active {
 }
 
 .hosts-container {
-  display: none;
   background: var(--tertiary-bg);
   border-top: 1px solid var(--border-color);
 }
 
 .hosts-container.expanded {
-  display: block;
-  animation: expandFolder 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  opacity: 1;
 }
 
-@keyframes expandFolder {
-  from {
-    opacity: 0;
-    max-height: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    max-height: 2000px;
-    transform: translateY(0);
-  }
+/* ensure last items are not cut off in the scroll area */
+.treeview-content {
+  padding-bottom: 12px;
 }
 
 .host-node {
@@ -3359,3 +3349,4 @@ textarea:focus {
 .badge.status-failed { background: rgba(248, 81, 73, 0.15); color: var(--accent-orange); font-size: 0.78rem; }
 .badge.status-error { background: rgba(248, 81, 73, 0.15); color: var(--accent-orange); font-size: 0.78rem; }
 .badge.status-stopped { background: rgba(139, 148, 158, 0.15); color: var(--text-secondary); font-size: 0.78rem; }
+

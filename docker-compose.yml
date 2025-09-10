@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   terminalx:
-    image: terminalx:1.1.2
+    image: terminalx:1.1.2.1
     container_name: terminalx
     # Expose the same port your FastAPI app listens on (8087 by default)
     ports:

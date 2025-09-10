@@ -673,18 +673,12 @@
       if (header && container) {
         header.classList.toggle('expanded', willExpand);
         if (willExpand) {
-          // Measure content height for smooth, non-clipping expansion
           container.classList.add('expanded');
-          container.style.maxHeight = container.scrollHeight + 'px';
+          // Remove any inline max-height that may clip content
+          container.style.maxHeight = '';
         } else {
-          // Collapse smoothly and then clean styles
-          container.style.maxHeight = '0px';
-          container.addEventListener('transitionend', function handler(e) {
-            if (e.propertyName === 'max-height') {
-              container.classList.remove('expanded');
-              container.removeEventListener('transitionend', handler);
-            }
-          });
+          container.classList.remove('expanded');
+          container.style.maxHeight = '';
         }
       } else {
         // Fallback: re-render if nodes not found (e.g., after drastic state change)

@@ -1031,8 +1031,9 @@ button:active {
   border-radius: var(--radius-lg);
   border: 1px solid var(--border-color);
   box-shadow: var(--shadow-lg);
-  max-height: 70vh;
-  overflow: hidden;
+  /* Allow full height so page scroll works; inner content manages its own scroll */
+  max-height: none;
+  overflow: visible;
   display: flex;
   flex-direction: column;
   margin-bottom: 2rem;
@@ -1191,15 +1192,16 @@ button:active {
 }
 
 .treeview-content {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
+  flex: 1 1 auto;
+  /* allow natural page scroll; do not trap inside the panel */
+  overflow: visible;
 }
 
 .enhanced-treeview {
   list-style: none;
   padding: 0;
   margin: 0;
+  display: block;
 }
 
 .folder-node {
@@ -1332,6 +1334,8 @@ button:active {
 
 .hosts-container.expanded {
   opacity: 1;
+  max-height: 9999px; /* allow full content height */
+  overflow: visible;
 }
 
 /* ensure last items are not cut off in the scroll area */
@@ -2600,7 +2604,7 @@ body.fileuploader-page .exec-terminal {
   }
   
   .enhanced-treeview-container {
-    max-height: 60vh;
+    max-height: none;
   }
   
   .treeview-header {
@@ -2725,7 +2729,7 @@ body.fileuploader-page .exec-terminal {
 
 @media (max-width: 480px) {
   .enhanced-treeview-container {
-    max-height: 50vh;
+    max-height: none;
   }
   
   .treeview-title {

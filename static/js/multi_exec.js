@@ -2,6 +2,8 @@ let ws;
 let busy = false;
 const hostViews = new Map();
 let summary = { total: 0, started: 0, success: 0, failure: 0 };
+let userStopped = false;
+let lastResults = {};
 
 function showExamples() {
   alert(
@@ -27,6 +29,7 @@ function connect() {
   if (busy) return; // prevent double submit while running
   if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
   busy = true;
+  userStopped = false;
   setButtonsState(true);
   clearOutput();
 
@@ -71,18 +74,22 @@ function startWebsocket(range, user, pw, cmd, fileLines) {
     appendSystem('Execution stopped.');
     busy = false;
     setButtonsState(false);
-    updateSummaryBadge();
-    // Finalize any hosts that are still in running/connecting state
-    hostViews.forEach((view, host) => {
-      const stage = view.status.dataset.stage;
-      if (stage === 'connecting' || stage === 'command_starting' || stage === 'command_started' || stage === 'connected') {
-        setStatus(host, 'stopped');
-      }
-    });
+    recomputeSummary();
+    // Only mark as stopped if the user explicitly clicked Stop
+    if (userStopped) {
+      hostViews.forEach((view, host) => {
+        const stage = view.status.dataset.stage;
+        if (stage === 'connecting' || stage === 'command_starting' || stage === 'command_started' || stage === 'connected') {
+          setStatus(host, 'stopped');
+        }
+      });
+      userStopped = false;
+    }
   };
 }
 
 function stopAll() {
+  userStopped = true;
   if (ws) try { ws.close(); } catch {}
 }
 
@@ -134,6 +141,11 @@ function setStatus(host, stage, extra) {
   };
   view.status.textContent = map[stage] || stage;
   view.status.dataset.stage = stage;
+  if (stage === 'completed') {
+    view.status.dataset.result = (extra && extra.ok) ? 'ok' : 'fail';
+  } else {
+    delete view.status.dataset.result;
+  }
   // Update visual classes
   view.status.classList.remove('status-idle','status-connecting','status-running','status-ok','status-failed','status-error','status-stopped');
   if (stage === 'connecting' || stage === 'connected' || stage === 'command_starting') {
@@ -176,7 +188,7 @@ function handleMessage(msg) {
     } else if (msg.stage === 'connect_failed' || msg.stage === 'error') {
       summary.failure += 1;
     }
-    updateSummaryBadge();
+    recomputeSummary();
     return;
   }
   if (msg.type === 'output') {
@@ -186,7 +198,35 @@ function handleMessage(msg) {
   if (msg.type === 'summary') {
     appendSystem(`Summary: total=${msg.total_hosts}, started=${msg.started}, success=${msg.success}, failure=${msg.failure}, duration=${msg.duration_sec}s`);
     summary = { total: msg.total_hosts, started: msg.started, success: msg.success, failure: msg.failure };
-    updateSummaryBadge();
+    // Reconcile any hosts that didn't receive a final completed event
+    if (msg.results && typeof msg.results === 'object') {
+      lastResults = msg.results || {};
+      Object.entries(msg.results).forEach(([host, res]) => {
+        const view = ensureHostView(host);
+        const currentStage = view.status.dataset.stage;
+        if (currentStage !== 'completed' && currentStage !== 'connect_failed' && currentStage !== 'error') {
+          setStatus(host, 'completed', { ok: !!res.ok });
+        }
+      });
+    }
+    recomputeSummary();
+    return;
+  }
+  if (msg.type === 'done') {
+    // Final guard: if any host is still pending but we have a result, apply it
+    if (msg.results && typeof msg.results === 'object') {
+      lastResults = msg.results || lastResults || {};
+    }
+    hostViews.forEach((view, host) => {
+      const stage = view.status.dataset.stage;
+      if (stage !== 'completed' && stage !== 'connect_failed' && stage !== 'error') {
+        const res = lastResults[host];
+        if (res) setStatus(host, 'completed', { ok: !!res.ok });
+      }
+    });
+    recomputeSummary();
+    // Client-initiated close to guarantee frames were processed
+    try { if (ws && ws.readyState === WebSocket.OPEN) ws.close(); } catch {}
     return;
   }
   if (msg.type === 'error') {
@@ -212,6 +252,25 @@ function filterOutput() {
 function clearOutput() {
   document.getElementById('output').innerHTML = '';
   hostViews.clear();
+}
+
+// New: robust summary recomputation
+function recomputeSummary() {
+  const el = document.getElementById('output-summary');
+  if (!el) return;
+  let ok = 0, fail = 0;
+  hostViews.forEach(view => {
+    const cls = view.status.classList;
+    if (cls.contains('status-ok')) ok++;
+    else if (cls.contains('status-failed') || cls.contains('status-error')) fail++;
+    else {
+      const stage = view.status.dataset.stage;
+      if (stage === 'connect_failed' || stage === 'error') fail++;
+    }
+  });
+  const total = summary.total || hostViews.size || 0;
+  const remaining = Math.max(0, total - (ok + fail));
+  el.textContent = `OK ${ok} · Fail ${fail} · Pending ${remaining}`;
 }
 
 function readFileLines(file) {

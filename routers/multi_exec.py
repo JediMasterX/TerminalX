@@ -10,6 +10,7 @@ import asyncio
 import logging
 import os
 import asyncssh
+import json
 from fastapi import APIRouter, Request, WebSocket, WebSocketDisconnect, Depends
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
@@ -21,6 +22,27 @@ templates = Jinja2Templates(directory="templates")
 logger = logging.getLogger("ssh_portal.multi_exec")
 
 
+def _ensure_exit_code(val):
+    try:
+        if isinstance(val, int):
+            return val
+        code = getattr(val, "exit_status", None)
+        if code is None:
+            code = getattr(val, "returncode", None)
+        if isinstance(code, int):
+            return code
+        if isinstance(val, str):
+            import re
+            m = re.search(r"exit_status:\s*(\d+)", val) or re.search(r"returncode:\s*(\d+)", val)
+            if m:
+                return int(m.group(1))
+        if isinstance(code, str) and code.isdigit():
+            return int(code)
+    except Exception:
+        pass
+    return None
+
+
 @router.get("/portal", response_class=HTMLResponse)
 def portal(request: Request, auth=Depends(require_auth)):
     return templates.TemplateResponse(
@@ -29,12 +51,31 @@ def portal(request: Request, auth=Depends(require_auth)):
     )
 
 
+def _sanitize(obj):
+    if obj is None or isinstance(obj, (str, int, float, bool)):
+        return obj
+    if isinstance(obj, dict):
+        return {str(k): _sanitize(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple, set)):
+        return [_sanitize(v) for v in obj]
+    # Fallback: stringify unknown objects (e.g., SSHCompletedProcess)
+    try:
+        return str(obj)
+    except Exception:
+        return repr(obj)
+
+
 async def _safe_ws_send(ws: WebSocket, payload: dict) -> bool:
     try:
-        await ws.send_json(payload)
+        data = _sanitize(payload)
+        await ws.send_text(json.dumps(data, ensure_ascii=False))
         return True
     except Exception as e:
-        logger.debug("WS send failed: %s", e)
+        try:
+            ptype = payload.get("type") if isinstance(payload, dict) else None
+        except Exception:
+            ptype = None
+        logger.warning("WS send failed for type=%s: %s", ptype, e)
         return False
 
 
@@ -108,88 +149,84 @@ async def ws_endpoint(ws: WebSocket):
     failed = 0
     started_hosts = 0
     start_ts = asyncio.get_event_loop().time()
+    host_results: dict[str, dict] = {}
 
     async def send(payload: dict):
         async with ws_lock:
             await _safe_ws_send(ws, payload)
 
-    async def stream_process(host: str, conn: asyncssh.SSHClientConnection):
-        nonlocal success, failed
-        # Start process and stream output
+    async def stream_process(host: str, conn: asyncssh.SSHClientConnection) -> tuple[bool, int | None]:
+        # Start process and stream output; return (ok, exit_status)
         await send({"type": "host_status", "host": host, "stage": "command_starting"})
+        proc = None
+        exit_status: int | None = None
+        # 1) Start process (failures here imply failure)
         try:
-            # Ensure text mode and proper shell semantics (support &&, ||, env, globs)
             try:
                 import shlex
                 shell_cmd = f"bash -lc {shlex.quote(command)}"
             except Exception:
                 shell_cmd = command
             proc = await conn.create_process(shell_cmd, encoding="utf-8", errors="replace")
-            await send({"type": "host_status", "host": host, "stage": "command_started"})
+        except Exception:
+            return (False, None)
 
-            out_buf: list[str] = []
-            err_buf: list[str] = []
-            FLUSH_LINES = 20
+        await send({"type": "host_status", "host": host, "stage": "command_started"})
 
-            async def flush():
-                if out_buf:
-                    chunk = "".join(out_buf)
-                    out_buf.clear()
-                    await send({"type": "output", "host": host, "stream": "stdout", "data": chunk})
-                if err_buf:
-                    chunk = "".join(err_buf)
-                    err_buf.clear()
-                    # Avoid sending empty/whitespace-only stderr chunks which create misleading ERR> lines
-                    if chunk.strip():
-                        await send({"type": "output", "host": host, "stream": "stderr", "data": chunk})
+        # 2) Stream output (any reader error should NOT flip success if exit_status==0)
+        out_buf: list[str] = []
+        err_buf: list[str] = []
+        FLUSH_LINES = 20
 
-            async def read_stream(reader, target_buf):
-                try:
-                    async for line in reader:
-                        # reader yields str when encoding is set; guard just in case
-                        if isinstance(line, bytes):
-                            try:
-                                line = line.decode("utf-8", "replace")
-                            except Exception:
-                                line = line.decode(errors="replace")
-                        target_buf.append(line)
-                        if len(target_buf) >= FLUSH_LINES:
-                            await flush()
-                except Exception as e:
-                    await send({"type": "output", "host": host, "stream": "stderr", "data": f"[reader-error] {e}\n"})
+        async def flush():
+            if out_buf:
+                chunk = "".join(out_buf)
+                out_buf.clear()
+                await send({"type": "output", "host": host, "stream": "stdout", "data": chunk})
+            if err_buf:
+                chunk = "".join(err_buf)
+                err_buf.clear()
+                if chunk.strip():
+                    await send({"type": "output", "host": host, "stream": "stderr", "data": chunk})
 
-            # Consume both streams concurrently
-            read_out = asyncio.create_task(read_stream(proc.stdout, out_buf))
-            read_err = asyncio.create_task(read_stream(proc.stderr, err_buf))
+        async def read_stream(reader, target_buf):
+            try:
+                async for line in reader:
+                    if isinstance(line, bytes):
+                        try:
+                            line = line.decode("utf-8", "replace")
+                        except Exception:
+                            line = line.decode(errors="replace")
+                    target_buf.append(line)
+                    if len(target_buf) >= FLUSH_LINES:
+                        await flush()
+            except Exception as e:
+                # Log to UI but don't change outcome
+                await send({"type": "output", "host": host, "stream": "stderr", "data": f"[reader-error] {e}\n"})
 
-            # Wait for process to exit and readers to drain
-            exit_status = await proc.wait()
-            await asyncio.gather(read_out, read_err, return_exceptions=True)
-            await flush()
+        read_out = asyncio.create_task(read_stream(proc.stdout, out_buf))
+        read_err = asyncio.create_task(read_stream(proc.stderr, err_buf))
 
-            ok = (exit_status == 0)
-            if ok:
-                success += 1
-            else:
-                failed += 1
-            await send({
-                "type": "host_status",
-                "host": host,
-                "stage": "completed",
-                "ok": ok,
-                "exit_status": exit_status,
-            })
-        except Exception as e:
-            failed += 1
-            await send({
-                "type": "host_status",
-                "host": host,
-                "stage": "error",
-                "error": str(e),
-            })
+        # Get exit status as early as possible and report completion before draining
+        exit_status = await proc.wait()
+        ex = _ensure_exit_code(exit_status)
+        ok_now = (ex == 0 if ex is not None else False)
+        # Emit early completion notification to reduce risk of client missing it
+        await send({
+            "type": "host_status",
+            "host": host,
+            "stage": "completed",
+            "ok": ok_now,
+            "exit_status": ex,
+        })
+
+        await asyncio.gather(read_out, read_err, return_exceptions=True)
+        await flush()
+
+        return (ok_now, exit_status)
 
     async def run_host(host: str):
-        nonlocal started_hosts
+        nonlocal started_hosts, success, failed
         async with sem:
             await send({"type": "host_status", "host": host, "stage": "connecting"})
             try:
@@ -197,11 +234,28 @@ async def ws_endpoint(ws: WebSocket):
                     host, username=ssh_user, password=ssh_pass, known_hosts=None
                 )
             except Exception as e:
+                failed += 1
                 await send({"type": "host_status", "host": host, "stage": "connect_failed", "error": str(e)})
                 return
             await send({"type": "host_status", "host": host, "stage": "connected"})
             started_hosts += 1
-            await stream_process(host, conn)
+            ok, exit_status = await stream_process(host, conn)
+            ex = _ensure_exit_code(exit_status)
+            if ex is not None:
+                ok = (ex == 0)
+            if ok:
+                success += 1
+            else:
+                failed += 1
+            result_evt = {
+                "type": "host_status",
+                "host": host,
+                "stage": "completed",
+                "ok": ok,
+                "exit_status": ex,
+            }
+            host_results[host] = {"ok": ok, "exit_status": ex}
+            await send(result_evt)
             try:
                 conn.close()
             except Exception:
@@ -218,14 +272,28 @@ async def ws_endpoint(ws: WebSocket):
             t.cancel()
     finally:
         duration = asyncio.get_event_loop().time() - start_ts
-        await send(
-            {
-                "type": "summary",
-                "total_hosts": len(hosts),
-                "started": started_hosts,
-                "success": success,
-                "failure": failed,
-                "duration_sec": round(duration, 2),
-            }
-        )
-        await ws.close()
+        await send({
+            "type": "summary",
+            "total_hosts": len(hosts),
+            "started": started_hosts,
+            "success": success,
+            "failure": failed,
+            "duration_sec": round(duration, 2),
+            "results": host_results,
+        })
+        # Emit a final 'done' signal and small delay to let client process frames
+        await send({
+            "type": "done",
+            "results": host_results,
+            "success": success,
+            "failure": failed,
+        })
+        # Give client time to receive 'done' and close from its side.
+        try:
+            await asyncio.wait_for(ws.receive_text(), timeout=2.0)
+        except Exception:
+            # Client may have already closed or not send anything; leave socket to be closed by client.
+            try:
+                await asyncio.sleep(0.2)
+            except Exception:
+                pass

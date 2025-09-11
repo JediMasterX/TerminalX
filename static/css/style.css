@@ -3170,6 +3170,32 @@ textarea:focus {
   margin-top: auto; /* Push actions to bottom */
 }
 
+/* ── Terminal Context Menu (Overlay/Inline) ─────────────────────────────── */
+.terminal-context-menu {
+  position: fixed;
+  background: #1f2937; /* slate-800 */
+  color: #e5e7eb; /* gray-200 */
+  border: 1px solid #374151; /* gray-700 */
+  border-radius: 6px;
+  min-width: 160px;
+  box-shadow: 0 10px 20px rgba(0,0,0,0.35);
+  padding: 6px 0;
+  z-index: 10000;
+  display: none;
+}
+.terminal-context-menu .item {
+  padding: 8px 14px;
+  cursor: pointer;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.terminal-context-menu .item:hover { background: #374151; }
+.terminal-context-menu .item.disabled { opacity: 0.5; cursor: not-allowed; }
+.terminal-context-menu .separator { height: 1px; background: #2d3748; margin: 6px 0; }
+
 .grid-action {
   background: var(--tertiary-bg);
   border: 1px solid var(--border-color);

@@ -135,6 +135,32 @@ function openPopup(hostId, hostName, hostAddress) {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
         }
+
+        /* Context menu styles */
+        .terminal-context-menu {
+          position: fixed;
+          background: #1f2937;
+          color: #e5e7eb;
+          border: 1px solid #374151;
+          border-radius: 6px;
+          min-width: 160px;
+          box-shadow: 0 10px 20px rgba(0,0,0,0.35);
+          padding: 6px 0;
+          z-index: 99999;
+          display: none;
+        }
+        .terminal-context-menu .item {
+          padding: 8px 14px;
+          cursor: pointer;
+          font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif;
+          font-size: 13px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .terminal-context-menu .item:hover { background: #374151; }
+        .terminal-context-menu .item.disabled { opacity: 0.5; cursor: not-allowed; }
+        .terminal-context-menu .separator { height: 1px; background: #2d3748; margin: 6px 0; }
       </style>
     </head>
     <body>
@@ -186,9 +212,12 @@ function openPopup(hostId, hostName, hostAddress) {
           
           const terminalElement = document.getElementById('terminal');
           term.open(terminalElement);
-          
+
           // Fit terminal to container
           fitTerminal();
+
+          // Attach context menu for copy/paste
+          attachTerminalContextMenu(term, terminalElement);
           
           // Show connection status
           showConnectionStatus(true);
@@ -270,6 +299,79 @@ function openPopup(hostId, hostName, hostAddress) {
         } else {
           initTerminal();
         }
+
+        function attachTerminalContextMenu(term, container) {
+          const menu = document.createElement('div');
+          menu.className = 'terminal-context-menu';
+          menu.innerHTML = '<div class="item" data-action="copy">📋 Copy<\/div>' +
+                           '<div class="item" data-action="paste">📥 Paste<\/div>';
+          document.body.appendChild(menu);
+
+          function hideMenu() { menu.style.display = 'none'; }
+          function showMenu(x, y) {
+            // Enable/disable copy based on selection
+            const copyItem = menu.querySelector('[data-action="copy"]');
+            if (term.hasSelection && term.hasSelection()) copyItem.classList.remove('disabled');
+            else copyItem.classList.add('disabled');
+
+            // Position within viewport
+            const vw = window.innerWidth, vh = window.innerHeight;
+            const rect = { w: menu.offsetWidth || 180, h: menu.offsetHeight || 80 };
+            const left = Math.min(x, vw - rect.w - 8);
+            const top = Math.min(y, vh - rect.h - 8);
+            menu.style.left = left + 'px';
+            menu.style.top = top + 'px';
+            menu.style.display = 'block';
+          }
+
+          container.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            hideMenu();
+            showMenu(e.clientX, e.clientY);
+          });
+
+          document.addEventListener('click', (e) => {
+            if (!menu.contains(e.target)) hideMenu();
+          });
+          document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideMenu(); });
+          container.addEventListener('wheel', hideMenu, { passive: true });
+          window.addEventListener('resize', hideMenu);
+
+          menu.addEventListener('click', async (e) => {
+            const item = e.target.closest('.item');
+            if (!item || item.classList.contains('disabled')) return;
+            const action = item.getAttribute('data-action');
+            try {
+              if (action === 'copy') {
+                const text = term.getSelection ? term.getSelection() : '';
+                if (!text) return;
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                  await navigator.clipboard.writeText(text);
+                } else {
+                  // Fallback via temporary textarea
+                  const ta = document.createElement('textarea');
+                  ta.value = text; document.body.appendChild(ta);
+                  ta.select(); document.execCommand('copy');
+                  document.body.removeChild(ta);
+                }
+              } else if (action === 'paste') {
+                if (navigator.clipboard && navigator.clipboard.readText) {
+                  const clip = await navigator.clipboard.readText();
+                  if (clip) {
+                    if (typeof term.paste === 'function') term.paste(clip);
+                    else if (socket && socket.readyState === WebSocket.OPEN) socket.send(clip);
+                  }
+                } else {
+                  alert('Clipboard paste not available in this browser/context. Use Ctrl+V.');
+                }
+              }
+            } catch (err) {
+              console.warn('Clipboard error:', err);
+            } finally {
+              hideMenu();
+            }
+          });
+        }
       </script>
     </body>
     </html>
@@ -331,6 +433,9 @@ function openTerminalOverlay(hostId, hostName, hostAddress) {
   term.loadAddon(fitAddon);
   term.loadAddon(webLinksAddon);
   term.open(terminalElement);
+
+  // Attach context menu for copy/paste on overlay terminal
+  try { attachTerminalContextMenu(term, terminalElement); } catch (e) { console.warn('context menu attach failed', e); }
 
   // Initial fit
   setTimeout(() => {
@@ -426,6 +531,82 @@ function closeTerminalOverlay() {
 
   panel.classList.remove("open");
   overlay.classList.remove("open");
+}
+
+// Attach a custom right-click context menu with Copy/Paste for an xterm.js instance
+function attachTerminalContextMenu(termInstance, container) {
+  if (!container || !termInstance) return;
+  // Avoid duplicate menus
+  if (container._hasContextMenu) return;
+  container._hasContextMenu = true;
+
+  const menu = document.createElement('div');
+  menu.className = 'terminal-context-menu';
+  menu.innerHTML = `
+    <div class="item" data-action="copy">📋 Copy</div>
+    <div class="item" data-action="paste">📥 Paste</div>
+  `;
+  document.body.appendChild(menu);
+
+  function hideMenu() { menu.style.display = 'none'; }
+  function showMenu(x, y) {
+    const copyItem = menu.querySelector('[data-action="copy"]');
+    if (termInstance.hasSelection && termInstance.hasSelection()) copyItem.classList.remove('disabled');
+    else copyItem.classList.add('disabled');
+
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const rect = { w: menu.offsetWidth || 180, h: menu.offsetHeight || 80 };
+    const left = Math.min(x, vw - rect.w - 8);
+    const top = Math.min(y, vh - rect.h - 8);
+    menu.style.left = left + 'px';
+    menu.style.top = top + 'px';
+    menu.style.display = 'block';
+  }
+
+  container.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    hideMenu();
+    showMenu(e.clientX, e.clientY);
+  });
+
+  document.addEventListener('click', (e) => { if (!menu.contains(e.target)) hideMenu(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideMenu(); });
+  container.addEventListener('wheel', hideMenu, { passive: true });
+  window.addEventListener('resize', hideMenu);
+
+  menu.addEventListener('click', async (e) => {
+    const item = e.target.closest('.item');
+    if (!item || item.classList.contains('disabled')) return;
+    const action = item.getAttribute('data-action');
+    try {
+      if (action === 'copy') {
+        const text = termInstance.getSelection ? termInstance.getSelection() : '';
+        if (!text) return;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(text);
+        } else {
+          const ta = document.createElement('textarea');
+          ta.value = text; document.body.appendChild(ta);
+          ta.select(); document.execCommand('copy');
+          document.body.removeChild(ta);
+        }
+      } else if (action === 'paste') {
+        if (navigator.clipboard && navigator.clipboard.readText) {
+          const clip = await navigator.clipboard.readText();
+          if (clip) {
+            if (typeof termInstance.paste === 'function') termInstance.paste(clip);
+            else if (socket && socket.readyState === WebSocket.OPEN) socket.send(clip);
+          }
+        } else {
+          alert('Clipboard paste not available in this browser/context. Use Ctrl+V.');
+        }
+      }
+    } catch (err) {
+      console.warn('Clipboard error:', err);
+    } finally {
+      hideMenu();
+    }
+  });
 }
 
 async function openSftp(hostOrId, username, password) {

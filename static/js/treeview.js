@@ -428,16 +428,57 @@ function closeTerminalOverlay() {
   overlay.classList.remove("open");
 }
 
-function openSftp(host, username, password) {
-  const url = `http://${location.hostname}:3000/` +
-              `?host=${encodeURIComponent(host)}` +
-              `&username=${encodeURIComponent(username)}` +
-              `&password=${encodeURIComponent(password)}`;
-  window.open(
-    url,
-    'sftpBrowser_' + host,
-    'width=1000,height=700,toolbar=no,location=no,status=no'
-  );
+async function openSftp(hostOrId, username, password) {
+  try {
+    // Resolve SFTP target from config.js (fallbacks included)
+    const proto = (window.SFTP_PROTOCOL || (location.protocol === 'https:' ? 'https' : 'http')).replace(/:$/, '');
+    const hostName = (window.SFTP_HOST && window.SFTP_HOST.trim()) ? window.SFTP_HOST.trim() : location.hostname;
+    const port = (window.SFTP_PORT && String(window.SFTP_PORT).trim()) ? String(window.SFTP_PORT).trim() : '3000';
+
+    // If no args provided, just open the SFTP UI landing page
+    if (typeof hostOrId === 'undefined' || hostOrId === null) {
+      const url = `${proto}://${hostName}:${port}/`;
+      window.open(url, 'sftpBrowser', 'width=1000,height=700,toolbar=no,location=no,status=no');
+      return;
+    }
+
+    // Prefer server-side lookup by host ID to avoid exposing credentials in the DOM
+    let resp;
+    if (typeof hostOrId === 'number') {
+      resp = await fetch('/api/sftp/mint', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ host_id: hostOrId })
+      });
+    } else {
+      // Legacy fallback (will be phased out): browser sends host/username/password to server
+      // Server mints an encrypted token; plaintext never goes into the URL.
+      resp = await fetch('/api/sftp/mint', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ host: hostOrId, username, password })
+      });
+    }
+
+    if (!resp.ok) {
+      console.error('Failed to mint SFTP token', resp.status);
+      return;
+    }
+    const data = await resp.json();
+    if (!data || !data.token) {
+      console.error('Invalid token response');
+      return;
+    }
+
+    const url = `${proto}://${hostName}:${port}/?token=${encodeURIComponent(data.token)}`;
+    window.open(
+      url,
+      'sftpBrowser_' + (typeof hostOrId === 'number' ? hostOrId : (hostOrId || '')),
+      'width=1000,height=700,toolbar=no,location=no,status=no'
+    );
+  } catch (e) {
+    console.error('openSftp error', e);
+  }
 }
 
 function openTD(host) {

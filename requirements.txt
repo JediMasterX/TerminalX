@@ -4,4 +4,5 @@ Jinja2
 passlib[bcrypt]
 python-multipart
 asyncssh
-itsdangerous==2.2.0
+itsdangerous
+cryptography

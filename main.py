@@ -13,6 +13,7 @@ from routers.script_exec   import router as script_exec_router
 from routers.range_gen     import router as range_gen_router
 from routers.shutdown      import router as shutdown_router
 from routers.file_uploader import router as file_uploader
+from routers.sftp_token    import router as sftp_token_router
 
 app = FastAPI()
 app.add_middleware(SessionMiddleware, secret_key="CHANGE_THIS_SECRET")
@@ -82,3 +83,4 @@ app.include_router(script_exec_router)
 app.include_router(range_gen_router)
 app.include_router(shutdown_router)
 app.include_router(file_uploader)
+app.include_router(sftp_token_router)

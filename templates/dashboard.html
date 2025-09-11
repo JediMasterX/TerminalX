@@ -557,7 +557,7 @@
             <button class="grid-action" onclick="openWeb('${host.host}')" title="Web Interface">🌐</button>
             <button class="grid-action" onclick="openTD('${host.host}')" title="TD Interface">📊</button>
             <button class="grid-action" onclick="openPort9090('${host.host}')" title="Moby Interface">🐳</button>
-            <button class="grid-action" onclick="openSftp('${host.host}', '${host.username}', '${host.password}')" title="SFTP Browser">📁</button>
+            <button class="grid-action" onclick="openSftp(${host.id})" title="SFTP Browser">📁</button>
             <button class="grid-action" onclick="dashboardTreeView.togglePin(${host.id})" title="${isPinned ? 'Unpin' : 'Pin'}">
               ${isPinned ? '📌' : '📍'}
             </button>
@@ -592,7 +592,7 @@
             <button class="compact-action" onclick="openWeb('${host.host}')" title="Web Interface">🌐</button>
             <button class="compact-action" onclick="openTD('${host.host}')" title="TD Interface">📊</button>
             <button class="compact-action" onclick="openPort9090('${host.host}')" title="Moby Interface">🐳</button>
-            <button class="compact-action" onclick="openSftp('${host.host}', '${host.username}', '${host.password}')" title="SFTP Browser">📁</button>
+            <button class="compact-action" onclick="openSftp(${host.id})" title="SFTP Browser">📁</button>
             <button class="compact-action" onclick="dashboardTreeView.togglePin(${host.id})" title="${isPinned ? 'Unpin' : 'Pin'}">
               ${isPinned ? '📌' : '📍'}
             </button>
@@ -642,7 +642,7 @@
             <button class="emoji-action" onclick="openWeb('${host.host}')" title="Web Interface">🌐</button>
             <button class="emoji-action" onclick="openTD('${host.host}')" title="TD Interface">📊</button>
             <button class="emoji-action" onclick="openPort9090('${host.host}')" title="Moby Interface">🐳</button>
-            <button class="emoji-action" onclick="openSftp('${host.host}', '${host.username}', '${host.password}')" title="SFTP Browser">📁</button>
+            <button class="emoji-action" onclick="openSftp(${host.id})" title="SFTP Browser">📁</button>
             <button class="emoji-action" onclick="openTerminalOverlay(${host.id}, '${host.name}', '${host.host}')" title="Full Terminal">💻</button>
             <button class="emoji-action ${isPinned ? 'pinned' : ''}" onclick="dashboardTreeView.togglePin(${host.id})" title="${isPinned ? 'Unpin' : 'Pin'}">
               ${isPinned ? '📌' : '📍'}

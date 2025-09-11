@@ -283,6 +283,29 @@
           }
         }
       });
+
+      // Sanitize sensitive query parameters from the location bar
+      try {
+        const url = new URL(window.location.href);
+        const sensitive = ['host', 'username', 'password', 'pass', 'pwd', 'secret', 'token'];
+        let changed = false;
+        sensitive.forEach((k) => {
+          if (url.searchParams.has(k)) {
+            url.searchParams.delete(k);
+            changed = true;
+          }
+        });
+        // Also wipe hash tokens
+        if (url.hash && /token=/.test(url.hash)) {
+          url.hash = '';
+          changed = true;
+        }
+        if (changed) {
+          window.history.replaceState(null, document.title, url.toString());
+        }
+      } catch (e) {
+        console.warn('URL sanitize skipped:', e);
+      }
     });
 
     // Global error handling

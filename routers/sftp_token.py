@@ -28,30 +28,44 @@ def _b64url_decode(data: str) -> bytes:
     return base64.urlsafe_b64decode(data + pad)
 
 
-def _get_shared_key() -> bytes:
+def _select_aes_key() -> bytes:
+    # Prefer TOKEN_SECRET (string) → SHA-256 to 32 bytes to match Node server
+    token_secret = os.getenv("TOKEN_SECRET", "").strip()
+    if token_secret:
+        import hashlib
+        return hashlib.sha256(token_secret.encode("utf-8")).digest()
+
+    # Fallback: SFTP_SHARED_KEY as base64url-encoded key bytes (16/24/32)
     key_b64 = os.getenv("SFTP_SHARED_KEY", "").strip()
     if not key_b64:
-        raise RuntimeError("SFTP_SHARED_KEY is not set")
+        raise RuntimeError("Either TOKEN_SECRET or SFTP_SHARED_KEY must be set")
     try:
         key = _b64url_decode(key_b64)
     except Exception:
-        raise RuntimeError("SFTP_SHARED_KEY must be base64url encoded 32 bytes")
+        raise RuntimeError("SFTP_SHARED_KEY must be base64url encoded 16/24/32 bytes")
     if len(key) not in (16, 24, 32):
         raise RuntimeError("SFTP_SHARED_KEY must decode to 16/24/32 bytes (AES key)")
     return key
 
 
 def _encrypt_payload(payload: dict) -> str:
+    """Encrypt payload producing Node-compatible token: v1.<iv>.<ct>.<tag>.
+    - AES-*-GCM with 12-byte IV
+    - No AAD
+    - Tag length is 16 bytes split from the end of ciphertext
+    """
     if AESGCM is None:
         raise RuntimeError("cryptography is required for AES-GCM encryption")
-    key = _get_shared_key()
+    key = _select_aes_key()
     aes = AESGCM(key)
-    nonce = os.urandom(12)
-    # Additional authenticated data to bind token format/version
-    aad = b"sftp.v1"
+    iv = os.urandom(12)
     pt = json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
-    ct = aes.encrypt(nonce, pt, aad)
-    return "v1." + _b64url_encode(nonce) + "." + _b64url_encode(ct)
+    ct_with_tag = aes.encrypt(iv, pt, None)  # associated_data=None to match Node
+    if len(ct_with_tag) < 17:
+        raise RuntimeError("encryption failed: ciphertext too short")
+    tag = ct_with_tag[-16:]
+    ct = ct_with_tag[:-16]
+    return "v1." + _b64url_encode(iv) + "." + _b64url_encode(ct) + "." + _b64url_encode(tag)
 
 
 def _mint_for_values(host: str, username: str, password: str, user_name: str) -> str:
@@ -107,4 +121,3 @@ async def mint_token(request: Request, auth=Depends(require_auth)):
         raise HTTPException(status_code=400, detail="missing host/username/password or host_id")
     token = _mint_for_values(host, username, password, user_name)
     return JSONResponse({"token": token})
-

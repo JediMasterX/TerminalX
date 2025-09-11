@@ -470,7 +470,7 @@ async function openSftp(hostOrId, username, password) {
       return;
     }
 
-    const url = `${proto}://${hostName}:${port}/?token=${encodeURIComponent(data.token)}`;
+    const url = `${proto}://${hostName}:${port}/#token=${encodeURIComponent(data.token)}`;
     window.open(
       url,
       'sftpBrowser_' + (typeof hostOrId === 'number' ? hostOrId : (hostOrId || '')),

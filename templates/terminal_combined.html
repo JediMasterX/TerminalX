@@ -95,33 +95,66 @@
             color: white;
         }
 
-        .main-container {
+        .main-layout {
             display: flex;
             height: calc(100vh - 60px);
             position: relative;
+            flex-direction: row; /* EXPLICIT: Left to right layout */
         }
 
-        .terminal-panel {
-            flex: 1;
-            background: #000;
-            position: relative;
-            border-right: 1px solid #30363d;
-        }
-
-        .sftp-panel {
-            flex: 1;
+        /* LEFT PANEL - SFTP Browser (40% width) */
+        .left-panel {
+            flex: 0 0 40%;
+            width: 40%;
             background: #0d1117;
             position: relative;
             transition: all 0.3s ease;
+            border-right: 1px solid #30363d;
+            min-width: 200px;
+            display: flex;
+            flex-direction: column;
         }
 
-        .sftp-panel.hidden {
-            flex: 0;
+        .left-panel.hidden {
+            flex: 0 0 0px !important;
+            width: 0 !important;
+            min-width: 0 !important;
             overflow: hidden;
+            border-right: none;
         }
 
-        .terminal-panel.full-width {
-            flex: 2;
+        /* RESIZER BAR */
+        .panel-resizer {
+            width: 4px;
+            background: #30363d;
+            cursor: col-resize;
+            position: relative;
+            transition: background 0.2s ease;
+            flex: 0 0 4px;
+        }
+
+        .panel-resizer:hover {
+            background: #58a6ff;
+        }
+
+        .panel-resizer.disabled {
+            cursor: default;
+            background: #21262d;
+        }
+
+        /* RIGHT PANEL - Terminal (60% width) */
+        .right-panel {
+            flex: 1;
+            width: 60%;
+            background: #000;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .right-panel.full-width {
+            flex: 1 !important;
+            width: 100% !important;
         }
 
         .panel-header {
@@ -133,6 +166,7 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
+            flex: 0 0 auto;
         }
 
         .panel-title {
@@ -165,20 +199,26 @@
         }
 
         #terminal {
-            height: calc(100% - 40px);
+            flex: 1;
             background: #000;
+        }
+
+        .sftp-content {
+            flex: 1;
+            position: relative;
+            background: #0d1117;
         }
 
         .sftp-iframe {
             width: 100%;
-            height: calc(100% - 40px);
+            height: 100%;
             border: none;
             background: #0d1117;
         }
 
         .loading-overlay {
             position: absolute;
-            top: 40px;
+            top: 0;
             left: 0;
             right: 0;
             bottom: 0;
@@ -205,18 +245,6 @@
             100% { transform: rotate(360deg); }
         }
 
-        .resizer {
-            width: 4px;
-            background: #30363d;
-            cursor: col-resize;
-            position: relative;
-            transition: background 0.2s ease;
-        }
-
-        .resizer:hover {
-            background: #58a6ff;
-        }
-
         .connection-status {
             padding: 4px 8px;
             border-radius: 4px;
@@ -239,19 +267,29 @@
             color: #f1e05a;
         }
 
+        /* Debug borders - remove these after testing */
+        .left-panel {
+            border: 2px solid red; /* SFTP should be LEFT with RED border */
+        }
+        
+        .right-panel {
+            border: 2px solid blue; /* Terminal should be RIGHT with BLUE border */
+        }
+
         /* Responsive adjustments */
         @media (max-width: 768px) {
-            .main-container {
+            .main-layout {
                 flex-direction: column;
             }
             
-            .terminal-panel, .sftp-panel {
+            .left-panel, .right-panel {
                 flex: 1;
+                width: 100% !important;
                 border-right: none;
                 border-bottom: 1px solid #30363d;
             }
             
-            .resizer {
+            .panel-resizer {
                 width: 100%;
                 height: 4px;
                 cursor: row-resize;
@@ -285,32 +323,40 @@
         </div>
     </div>
 
-    <div class="main-container" id="mainContainer">
-        <div class="terminal-panel" id="terminalPanel">
+    <!-- MAIN LAYOUT: LEFT = SFTP, RIGHT = TERMINAL -->
+    <div class="main-layout" id="mainLayout">
+        
+        <!-- LEFT PANEL: SFTP Browser (40%) -->
+        <div class="left-panel" id="leftPanel">
+            <div class="panel-header">
+                <div class="panel-title">
+                    <div class="status-indicator" id="sftpStatus"></div>
+                    File Browser (LEFT SIDE - SFTP)
+                </div>
+            </div>
+            <div class="sftp-content">
+                <div class="loading-overlay" id="sftpLoading">
+                    <div class="loading-spinner"></div>
+                    <div>Connecting to SFTP...</div>
+                </div>
+                <iframe class="sftp-iframe" id="sftpFrame" style="display: none;"></iframe>
+            </div>
+        </div>
+
+        <!-- RESIZER BAR -->
+        <div class="panel-resizer" id="panelResizer"></div>
+
+        <!-- RIGHT PANEL: Terminal (60%) -->
+        <div class="right-panel" id="rightPanel">
             <div class="panel-header">
                 <div class="panel-title">
                     <div class="status-indicator" id="terminalStatus"></div>
-                    Terminal
+                    Terminal (RIGHT SIDE)
                 </div>
             </div>
             <div id="terminal"></div>
         </div>
 
-        <div class="resizer" id="resizer"></div>
-
-        <div class="sftp-panel" id="sftpPanel">
-            <div class="panel-header">
-                <div class="panel-title">
-                    <div class="status-indicator" id="sftpStatus"></div>
-                    File Browser
-                </div>
-            </div>
-            <div class="loading-overlay" id="sftpLoading">
-                <div class="loading-spinner"></div>
-                <div>Connecting to SFTP...</div>
-            </div>
-            <iframe class="sftp-iframe" id="sftpFrame" style="display: none;"></iframe>
-        </div>
     </div>
 
     <!-- XTerm Scripts -->
@@ -337,6 +383,9 @@
             token: null,
             url: null
         };
+
+        console.log('🔴 RED BORDER = SFTP Panel (should be on LEFT)');
+        console.log('🔵 BLUE BORDER = Terminal Panel (should be on RIGHT)');
 
         // Initialize terminal
         function initializeTerminal() {
@@ -373,9 +422,6 @@
             }
 
             window.addEventListener('resize', resizeTerminal);
-            document.getElementById('resizer').addEventListener('mouseup', () => {
-                setTimeout(resizeTerminal, 100);
-            });
 
             // Initial fit
             setTimeout(resizeTerminal, 100);
@@ -445,6 +491,8 @@
                 updateSftpStatus('connecting');
                 document.getElementById('sftpLoading').style.display = 'flex';
                 
+                console.log('🟡 Starting SFTP connection...');
+                
                 // Get SFTP token from server
                 const response = await fetch('/api/sftp/mint', {
                     method: 'POST',
@@ -470,6 +518,8 @@
                 
                 sftpState.url = `${sftpProtocol}//${sftpHost}:${sftpPort}/#token=${encodeURIComponent(data.token)}`;
                 
+                console.log('🟡 Loading SFTP iframe...', sftpState.url);
+                
                 // Load SFTP iframe
                 const iframe = document.getElementById('sftpFrame');
                 iframe.src = sftpState.url;
@@ -479,19 +529,65 @@
                     document.getElementById('sftpLoading').style.display = 'none';
                     iframe.style.display = 'block';
                     sftpState.connected = true;
+                    
+                    console.log('✅ SFTP connected successfully');
                 };
 
                 iframe.onerror = () => {
-                    updateSftpStatus('disconnected');
-                    document.getElementById('sftpLoading').style.display = 'none';
-                    console.error('Failed to load SFTP iframe');
+                    handleSftpError('Failed to load SFTP interface');
                 };
 
             } catch (error) {
-                updateSftpStatus('disconnected');
-                document.getElementById('sftpLoading').style.display = 'none';
-                console.error('SFTP initialization error:', error);
+                handleSftpError('SFTP initialization error: ' + error.message);
             }
+        }
+
+        function handleSftpError(errorMessage) {
+            updateSftpStatus('disconnected');
+            document.getElementById('sftpLoading').style.display = 'none';
+            console.error('❌ SFTP Error:', errorMessage);
+            
+            // Show error message in the SFTP panel
+            const sftpContent = document.querySelector('.sftp-content');
+            const iframe = document.getElementById('sftpFrame');
+            
+            iframe.style.display = 'none';
+            
+            // Create/update error message
+            let errorElement = document.getElementById('sftpError');
+            if (!errorElement) {
+                errorElement = document.createElement('div');
+                errorElement.id = 'sftpError';
+                errorElement.style.cssText = `
+                    padding: 20px;
+                    color: #f85149;
+                    background: #161b22;
+                    border: 1px solid #30363d;
+                    border-radius: 6px;
+                    margin: 20px;
+                    text-align: center;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    gap: 10px;
+                `;
+                sftpContent.appendChild(errorElement);
+            }
+            
+            errorElement.innerHTML = `
+                <div style="font-size: 24px;">📁❌</div>
+                <div style="font-weight: bold;">SFTP Connection Failed</div>
+                <div style="font-size: 0.9rem; opacity: 0.8;">${errorMessage}</div>
+                <button onclick="initializeSftp()" style="
+                    background: #238636;
+                    color: white;
+                    border: none;
+                    border-radius: 6px;
+                    padding: 8px 16px;
+                    cursor: pointer;
+                    margin-top: 10px;
+                ">Retry Connection</button>
+            `;
         }
 
         function updateSftpStatus(status) {
@@ -500,28 +596,51 @@
         }
 
         function toggleSftp() {
-            const sftpPanel = document.getElementById('sftpPanel');
-            const terminalPanel = document.getElementById('terminalPanel');
+            const leftPanel = document.getElementById('leftPanel');
+            const rightPanel = document.getElementById('rightPanel');
             const toggleBtn = document.getElementById('toggleSftp');
             const refreshBtn = document.getElementById('refreshSftp');
+            const resizer = document.getElementById('panelResizer');
             
-            if (sftpPanel.classList.contains('hidden')) {
-                sftpPanel.classList.remove('hidden');
-                terminalPanel.classList.remove('full-width');
+            console.log('🔄 Toggle SFTP clicked');
+            
+            if (leftPanel.classList.contains('hidden')) {
+                // SHOW SFTP panel (left side)
+                console.log('📁 SHOWING SFTP on LEFT side');
+                
+                leftPanel.classList.remove('hidden');
+                rightPanel.classList.remove('full-width');
                 toggleBtn.classList.add('active');
                 refreshBtn.style.display = 'flex';
+                resizer.classList.remove('disabled');
+                
+                // Set explicit 40/60 split
+                leftPanel.style.flex = '0 0 40%';
+                leftPanel.style.width = '40%';
+                rightPanel.style.flex = '1';
+                rightPanel.style.width = '60%';
                 
                 if (!sftpState.connected) {
                     initializeSftp();
                 }
             } else {
-                sftpPanel.classList.add('hidden');
-                terminalPanel.classList.add('full-width');
+                // HIDE SFTP panel
+                console.log('📁 HIDING SFTP panel');
+                
+                leftPanel.classList.add('hidden');
+                rightPanel.classList.add('full-width');
                 toggleBtn.classList.remove('active');
                 refreshBtn.style.display = 'none';
+                resizer.classList.add('disabled');
+                
+                // Terminal takes full width
+                leftPanel.style.flex = '0 0 0px';
+                leftPanel.style.width = '0';
+                rightPanel.style.flex = '1';
+                rightPanel.style.width = '100%';
             }
             
-            // Trigger terminal resize after animation
+            // Resize terminal after layout change
             setTimeout(() => {
                 if (terminalState.term) {
                     terminalState.term.fit();
@@ -538,17 +657,24 @@
 
         // Panel resizer functionality
         function initializeResizer() {
-            const resizer = document.getElementById('resizer');
-            const terminalPanel = document.getElementById('terminalPanel');
-            const sftpPanel = document.getElementById('sftpPanel');
-            const container = document.getElementById('mainContainer');
+            const resizer = document.getElementById('panelResizer');
+            const leftPanel = document.getElementById('leftPanel');
+            const rightPanel = document.getElementById('rightPanel');
+            const container = document.getElementById('mainLayout');
             
             let isResizing = false;
 
             resizer.addEventListener('mousedown', (e) => {
+                if (leftPanel.classList.contains('hidden') || resizer.classList.contains('disabled')) {
+                    return;
+                }
+                
                 isResizing = true;
                 document.addEventListener('mousemove', handleMouseMove);
                 document.addEventListener('mouseup', stopResize);
+                e.preventDefault();
+                
+                console.log('🔄 Starting resize');
             });
 
             function handleMouseMove(e) {
@@ -558,24 +684,31 @@
                 const offsetX = e.clientX - containerRect.left;
                 const containerWidth = containerRect.width;
                 
+                // Calculate left panel percentage
                 const leftPercent = (offsetX / containerWidth) * 100;
-                const rightPercent = 100 - leftPercent;
                 
-                if (leftPercent >= 20 && rightPercent >= 20) {
-                    terminalPanel.style.flex = `0 0 ${leftPercent}%`;
-                    sftpPanel.style.flex = `0 0 ${rightPercent}%`;
+                // Constrain between 15% and 75%
+                if (leftPercent >= 15 && leftPercent <= 75) {
+                    leftPanel.style.flex = `0 0 ${leftPercent}%`;
+                    leftPanel.style.width = `${leftPercent}%`;
+                    rightPanel.style.width = `${100 - leftPercent}%`;
                 }
             }
 
             function stopResize() {
+                if (!isResizing) return;
+                
                 isResizing = false;
                 document.removeEventListener('mousemove', handleMouseMove);
                 document.removeEventListener('mouseup', stopResize);
                 
-                // Trigger terminal resize
-                if (terminalState.term) {
-                    setTimeout(() => terminalState.term.fit(), 50);
-                }
+                console.log('✅ Resize complete');
+                
+                setTimeout(() => {
+                    if (terminalState.term) {
+                        terminalState.term.fit();
+                    }
+                }, 100);
             }
         }
 
@@ -585,12 +718,38 @@
 
         // Initialize application
         document.addEventListener('DOMContentLoaded', () => {
+            console.log('🚀 Initializing combined interface...');
+            console.log('🔴 RED border = SFTP (LEFT side)');
+            console.log('🔵 BLUE border = Terminal (RIGHT side)');
+            
             initializeTerminal();
             initializeResizer();
             
-            // Start with SFTP hidden
-            document.getElementById('sftpPanel').classList.add('hidden');
-            document.getElementById('terminalPanel').classList.add('full-width');
+            // Force LEFT panel (SFTP) to be visible with 40% width
+            const leftPanel = document.getElementById('leftPanel');
+            const rightPanel = document.getElementById('rightPanel');
+            
+            leftPanel.classList.remove('hidden');
+            rightPanel.classList.remove('full-width');
+            
+            leftPanel.style.flex = '0 0 40%';
+            leftPanel.style.width = '40%';
+            rightPanel.style.flex = '1';
+            rightPanel.style.width = '60%';
+            
+            console.log('🎯 Layout set: LEFT=SFTP(40%), RIGHT=Terminal(60%)');
+            
+            // Start SFTP after layout is ready
+            setTimeout(() => {
+                initializeSftp();
+            }, 500);
+            
+            // Resize terminal after everything is ready
+            setTimeout(() => {
+                if (terminalState.term) {
+                    terminalState.term.fit();
+                }
+            }, 1000);
         });
 
         // Cleanup on page unload

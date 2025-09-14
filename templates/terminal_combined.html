@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Combined Terminal & SFTP - {{ host_name }}</title>
+    
+    <!-- XTerm CSS -->
+    <link rel="stylesheet" href="/static/vendor/xterm/xterm.css">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #0d1117;
+            color: #f0f6fc;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #161b22 0%, #21262d 100%);
+            border-bottom: 1px solid #30363d;
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            position: relative;
+        }
+
+        .host-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .host-icon {
+            width: 24px;
+            height: 24px;
+            background: #58a6ff;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+
+        .host-details h1 {
+            font-size: 1.2rem;
+            color: #f0f6fc;
+            margin: 0;
+        }
+
+        .host-details span {
+            font-size: 0.9rem;
+            color: #8b949e;
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 8px;
+        }
+
+        .control-btn {
+            background: #21262d;
+            border: 1px solid #30363d;
+            color: #f0f6fc;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .control-btn:hover {
+            background: #30363d;
+            border-color: #58a6ff;
+        }
+
+        .control-btn.active {
+            background: #58a6ff;
+            border-color: #58a6ff;
+            color: white;
+        }
+
+        .main-container {
+            display: flex;
+            height: calc(100vh - 60px);
+            position: relative;
+        }
+
+        .terminal-panel {
+            flex: 1;
+            background: #000;
+            position: relative;
+            border-right: 1px solid #30363d;
+        }
+
+        .sftp-panel {
+            flex: 1;
+            background: #0d1117;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .sftp-panel.hidden {
+            flex: 0;
+            overflow: hidden;
+        }
+
+        .terminal-panel.full-width {
+            flex: 2;
+        }
+
+        .panel-header {
+            background: #161b22;
+            border-bottom: 1px solid #30363d;
+            padding: 8px 16px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .panel-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #3fb950;
+            animation: pulse 2s infinite;
+        }
+
+        .status-indicator.disconnected {
+            background: #f85149;
+            animation: none;
+        }
+
+        .status-indicator.connecting {
+            background: #f1e05a;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        #terminal {
+            height: calc(100% - 40px);
+            background: #000;
+        }
+
+        .sftp-iframe {
+            width: 100%;
+            height: calc(100% - 40px);
+            border: none;
+            background: #0d1117;
+        }
+
+        .loading-overlay {
+            position: absolute;
+            top: 40px;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(13, 17, 23, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 16px;
+            z-index: 100;
+        }
+
+        .loading-spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid #30363d;
+            border-top: 3px solid #58a6ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .resizer {
+            width: 4px;
+            background: #30363d;
+            cursor: col-resize;
+            position: relative;
+            transition: background 0.2s ease;
+        }
+
+        .resizer:hover {
+            background: #58a6ff;
+        }
+
+        .connection-status {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .connection-status.connected {
+            background: rgba(63, 185, 80, 0.15);
+            color: #3fb950;
+        }
+
+        .connection-status.disconnected {
+            background: rgba(248, 81, 73, 0.15);
+            color: #f85149;
+        }
+
+        .connection-status.connecting {
+            background: rgba(241, 224, 90, 0.15);
+            color: #f1e05a;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .main-container {
+                flex-direction: column;
+            }
+            
+            .terminal-panel, .sftp-panel {
+                flex: 1;
+                border-right: none;
+                border-bottom: 1px solid #30363d;
+            }
+            
+            .resizer {
+                width: 100%;
+                height: 4px;
+                cursor: row-resize;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="host-info">
+            <div class="host-icon">🖥️</div>
+            <div class="host-details">
+                <h1>{{ host_name }}</h1>
+                <span>{{ host_addr }}</span>
+            </div>
+        </div>
+        
+        <div class="header-controls">
+            <div class="connection-status connected" id="connectionStatus">
+                Connected
+            </div>
+            <button class="control-btn active" id="toggleSftp" title="Toggle SFTP Browser">
+                <span>📁</span> SFTP
+            </button>
+            <button class="control-btn" id="refreshSftp" title="Refresh SFTP">
+                <span>🔄</span> Refresh
+            </button>
+            <button class="control-btn" onclick="window.close()" title="Close Window">
+                <span>✕</span> Close
+            </button>
+        </div>
+    </div>
+
+    <div class="main-container" id="mainContainer">
+        <div class="terminal-panel" id="terminalPanel">
+            <div class="panel-header">
+                <div class="panel-title">
+                    <div class="status-indicator" id="terminalStatus"></div>
+                    Terminal
+                </div>
+            </div>
+            <div id="terminal"></div>
+        </div>
+
+        <div class="resizer" id="resizer"></div>
+
+        <div class="sftp-panel" id="sftpPanel">
+            <div class="panel-header">
+                <div class="panel-title">
+                    <div class="status-indicator" id="sftpStatus"></div>
+                    File Browser
+                </div>
+            </div>
+            <div class="loading-overlay" id="sftpLoading">
+                <div class="loading-spinner"></div>
+                <div>Connecting to SFTP...</div>
+            </div>
+            <iframe class="sftp-iframe" id="sftpFrame" style="display: none;"></iframe>
+        </div>
+    </div>
+
+    <!-- XTerm Scripts -->
+    <script src="/static/vendor/xterm/xterm.js"></script>
+    <script src="/static/vendor/xterm/xterm-addon-fit.js"></script>
+    <script src="/static/vendor/xterm/xterm-addon-web-links.js"></script>
+    <script src="/static/vendor/xterm/xterm-addon-search.js"></script>
+
+    <script>
+        // Configuration from server
+        const hostId = {{ host_id }};
+        const hostName = "{{ host_name }}";
+        const hostAddr = "{{ host_addr }}";
+        
+        // State management
+        let terminalState = {
+            connected: false,
+            socket: null,
+            term: null
+        };
+        
+        let sftpState = {
+            connected: false,
+            token: null,
+            url: null
+        };
+
+        // Initialize terminal
+        function initializeTerminal() {
+            const term = new Terminal({
+                fontFamily: "'SF Mono', Monaco, 'Cascadia Code', 'Courier New', monospace",
+                fontSize: 14,
+                theme: { 
+                    background: '#000000',
+                    foreground: '#ffffff',
+                    cursor: '#ffffff',
+                    selection: 'rgba(255, 255, 255, 0.3)'
+                },
+                cursorBlink: true,
+                scrollback: 1000
+            });
+
+            const fitAddon = new FitAddon.FitAddon();
+            const webLinksAddon = new WebLinksAddon.WebLinksAddon();
+            
+            term.loadAddon(fitAddon);
+            term.loadAddon(webLinksAddon);
+
+            const terminalContainer = document.getElementById("terminal");
+            term.open(terminalContainer);
+            
+            terminalState.term = term;
+
+            // Connect WebSocket
+            connectTerminal();
+
+            // Handle resize
+            function resizeTerminal() {
+                fitAddon.fit();
+            }
+
+            window.addEventListener('resize', resizeTerminal);
+            document.getElementById('resizer').addEventListener('mouseup', () => {
+                setTimeout(resizeTerminal, 100);
+            });
+
+            // Initial fit
+            setTimeout(resizeTerminal, 100);
+
+            return { term, fitAddon };
+        }
+
+        function connectTerminal() {
+            updateTerminalStatus('connecting');
+            
+            const protocol = location.protocol === "https:" ? "wss" : "ws";
+            const socket = new WebSocket(`${protocol}://${location.host}/ws/${hostId}`);
+            
+            terminalState.socket = socket;
+
+            socket.onopen = () => {
+                updateTerminalStatus('connected');
+                terminalState.connected = true;
+            };
+
+            socket.onmessage = (event) => {
+                terminalState.term.write(event.data);
+            };
+
+            socket.onclose = () => {
+                updateTerminalStatus('disconnected');
+                terminalState.connected = false;
+                terminalState.term.write("\r\n*** Connection closed ***\r\n");
+            };
+
+            socket.onerror = (error) => {
+                updateTerminalStatus('disconnected');
+                console.error('Terminal WebSocket error:', error);
+            };
+
+            terminalState.term.onData(data => {
+                if (socket.readyState === WebSocket.OPEN) {
+                    socket.send(data);
+                }
+            });
+        }
+
+        function updateTerminalStatus(status) {
+            const indicator = document.getElementById('terminalStatus');
+            const connectionStatus = document.getElementById('connectionStatus');
+            
+            indicator.className = `status-indicator ${status}`;
+            
+            switch(status) {
+                case 'connected':
+                    connectionStatus.className = 'connection-status connected';
+                    connectionStatus.textContent = 'Connected';
+                    break;
+                case 'connecting':
+                    connectionStatus.className = 'connection-status connecting';
+                    connectionStatus.textContent = 'Connecting...';
+                    break;
+                case 'disconnected':
+                    connectionStatus.className = 'connection-status disconnected';
+                    connectionStatus.textContent = 'Disconnected';
+                    break;
+            }
+        }
+
+        async function initializeSftp() {
+            try {
+                updateSftpStatus('connecting');
+                document.getElementById('sftpLoading').style.display = 'flex';
+                
+                // Get SFTP token from server
+                const response = await fetch('/api/sftp/mint', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ host_id: hostId })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Failed to get SFTP token: ${response.status}`);
+                }
+
+                const data = await response.json();
+                if (!data.token) {
+                    throw new Error('No token received');
+                }
+
+                sftpState.token = data.token;
+                
+                // Configure SFTP URL (adjust these based on your setup)
+                const sftpProtocol = location.protocol;
+                const sftpHost = location.hostname;
+                const sftpPort = '3000'; // SFTP server port
+                
+                sftpState.url = `${sftpProtocol}//${sftpHost}:${sftpPort}/#token=${encodeURIComponent(data.token)}`;
+                
+                // Load SFTP iframe
+                const iframe = document.getElementById('sftpFrame');
+                iframe.src = sftpState.url;
+                
+                iframe.onload = () => {
+                    updateSftpStatus('connected');
+                    document.getElementById('sftpLoading').style.display = 'none';
+                    iframe.style.display = 'block';
+                    sftpState.connected = true;
+                };
+
+                iframe.onerror = () => {
+                    updateSftpStatus('disconnected');
+                    document.getElementById('sftpLoading').style.display = 'none';
+                    console.error('Failed to load SFTP iframe');
+                };
+
+            } catch (error) {
+                updateSftpStatus('disconnected');
+                document.getElementById('sftpLoading').style.display = 'none';
+                console.error('SFTP initialization error:', error);
+            }
+        }
+
+        function updateSftpStatus(status) {
+            const indicator = document.getElementById('sftpStatus');
+            indicator.className = `status-indicator ${status}`;
+        }
+
+        function toggleSftp() {
+            const sftpPanel = document.getElementById('sftpPanel');
+            const terminalPanel = document.getElementById('terminalPanel');
+            const toggleBtn = document.getElementById('toggleSftp');
+            const refreshBtn = document.getElementById('refreshSftp');
+            
+            if (sftpPanel.classList.contains('hidden')) {
+                sftpPanel.classList.remove('hidden');
+                terminalPanel.classList.remove('full-width');
+                toggleBtn.classList.add('active');
+                refreshBtn.style.display = 'flex';
+                
+                if (!sftpState.connected) {
+                    initializeSftp();
+                }
+            } else {
+                sftpPanel.classList.add('hidden');
+                terminalPanel.classList.add('full-width');
+                toggleBtn.classList.remove('active');
+                refreshBtn.style.display = 'none';
+            }
+            
+            // Trigger terminal resize after animation
+            setTimeout(() => {
+                if (terminalState.term) {
+                    terminalState.term.fit();
+                }
+            }, 300);
+        }
+
+        function refreshSftp() {
+            if (sftpState.connected) {
+                const iframe = document.getElementById('sftpFrame');
+                iframe.src = iframe.src; // Reload iframe
+            }
+        }
+
+        // Panel resizer functionality
+        function initializeResizer() {
+            const resizer = document.getElementById('resizer');
+            const terminalPanel = document.getElementById('terminalPanel');
+            const sftpPanel = document.getElementById('sftpPanel');
+            const container = document.getElementById('mainContainer');
+            
+            let isResizing = false;
+
+            resizer.addEventListener('mousedown', (e) => {
+                isResizing = true;
+                document.addEventListener('mousemove', handleMouseMove);
+                document.addEventListener('mouseup', stopResize);
+            });
+
+            function handleMouseMove(e) {
+                if (!isResizing) return;
+                
+                const containerRect = container.getBoundingClientRect();
+                const offsetX = e.clientX - containerRect.left;
+                const containerWidth = containerRect.width;
+                
+                const leftPercent = (offsetX / containerWidth) * 100;
+                const rightPercent = 100 - leftPercent;
+                
+                if (leftPercent >= 20 && rightPercent >= 20) {
+                    terminalPanel.style.flex = `0 0 ${leftPercent}%`;
+                    sftpPanel.style.flex = `0 0 ${rightPercent}%`;
+                }
+            }
+
+            function stopResize() {
+                isResizing = false;
+                document.removeEventListener('mousemove', handleMouseMove);
+                document.removeEventListener('mouseup', stopResize);
+                
+                // Trigger terminal resize
+                if (terminalState.term) {
+                    setTimeout(() => terminalState.term.fit(), 50);
+                }
+            }
+        }
+
+        // Event listeners
+        document.getElementById('toggleSftp').addEventListener('click', toggleSftp);
+        document.getElementById('refreshSftp').addEventListener('click', refreshSftp);
+
+        // Initialize application
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeTerminal();
+            initializeResizer();
+            
+            // Start with SFTP hidden
+            document.getElementById('sftpPanel').classList.add('hidden');
+            document.getElementById('terminalPanel').classList.add('full-width');
+        });
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (terminalState.socket) {
+                terminalState.socket.close();
+            }
+        });
+    </script>
+</body>
+</html>

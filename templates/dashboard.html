@@ -221,623 +221,852 @@
   </div>
 
   <script>
-  // Enhanced Tree View Integration for Dashboard
-  class DashboardTreeView {
-    constructor() {
-      this.hosts = [];
-      this.filteredHosts = [];
-      this.selectedHosts = new Set();
-      this.pinnedHosts = new Set();
-      this.expandedFolders = new Set();
-      this.currentView = 'tree';
-      this.searchTerm = '';
-      
-      this.init();
-      this.loadHostsFromTemplate();
-    }
+    // Enhanced Tree View Integration for Dashboard
+    class DashboardTreeView {
+      constructor() {
+        this.hosts = [];
+        this.filteredHosts = [];
+        this.selectedHosts = new Set();
+        this.pinnedHosts = new Set();
+        this.expandedFolders = new Set();
+        this.currentView = 'tree';
+        this.searchTerm = '';
+        
+        this.init();
+        this.loadHostsFromTemplate();
+      }
 
-    init() {
-      // Search functionality
-      document.getElementById('searchInput').addEventListener('input', (e) => {
-        this.searchTerm = e.target.value.toLowerCase();
-        this.filterHosts();
-        this.render();
-      });
-
-      // View toggles
-      document.querySelectorAll('.view-toggle').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          document.querySelectorAll('.view-toggle').forEach(b => b.classList.remove('active'));
-          e.target.closest('button').classList.add('active');
-          this.currentView = e.target.closest('button').dataset.view;
+      init() {
+        // Search functionality
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+          this.searchTerm = e.target.value.toLowerCase();
+          this.filterHosts();
           this.render();
         });
-      });
 
-      // Keyboard shortcuts
-      document.addEventListener('keydown', (e) => {
-        if (e.ctrlKey || e.metaKey) {
-          switch(e.key) {
-            case 'f':
-              e.preventDefault();
-              document.getElementById('searchInput').focus();
-              break;
-            case 'a':
-              e.preventDefault();
-              this.selectAll();
-              break;
-          }
-        }
-      });
-
-      // Load pinned hosts from localStorage
-      const saved = localStorage.getItem('pinnedHosts');
-      if (saved) {
-        this.pinnedHosts = new Set(JSON.parse(saved));
-      }
-    }
-
-    loadHostsFromTemplate() {
-      // Convert flattened host list from template
-      this.hosts = {{ all_hosts_flat|tojson }};
-      
-      // Apply pinned status
-      this.hosts.forEach(host => {
-        host.pinned = this.pinnedHosts.has(host.id);
-      });
-
-      this.filteredHosts = [...this.hosts];
-      this.render();
-      this.updateHostCounter();
-    }
-
-    filterHosts() {
-      if (!this.searchTerm) {
-        this.filteredHosts = [...this.hosts];
-        return;
-      }
-
-      this.filteredHosts = this.hosts.filter(host => 
-        host.name.toLowerCase().includes(this.searchTerm) ||
-        host.host.toLowerCase().includes(this.searchTerm) ||
-        host.folder_path.toLowerCase().includes(this.searchTerm) ||
-        host.username.toLowerCase().includes(this.searchTerm)
-      );
-    }
-
-    render() {
-      const container = document.getElementById('enhancedTreeview');
-      
-      if (this.currentView === 'grid') {
-        this.renderGridView(container);
-      } else if (this.currentView === 'compact') {
-        this.renderCompactView(container);
-      } else {
-        this.renderTreeView(container);
-      }
-      
-      this.updateBulkActions();
-      this.updateHostCounter();
-    }
-
-    renderTreeView(container) {
-      // Reset all container styles
-      container.innerHTML = '';
-      container.className = 'enhanced-treeview';
-      container.style.display = '';
-      container.style.gridTemplateColumns = '';
-      container.style.gap = '';
-      container.style.padding = '';
-
-      if (this.filteredHosts.length === 0) {
-        container.innerHTML = this.renderEmptyState();
-        return;
-      }
-
-      // Build folder hierarchy
-      const folderTree = this.buildFolderTree();
-      
-      // Render the tree recursively
-      this.renderFolderNode(folderTree, container, '');
-    }
-
-    renderGridView(container) {
-      // Reset all container styles first
-      container.innerHTML = '';
-      container.className = 'grid-view';
-      container.style.display = 'grid';
-      container.style.gridTemplateColumns = 'repeat(auto-fill, minmax(300px, 1fr))';
-      container.style.gap = '1rem';
-      container.style.padding = '1rem';
-
-      if (this.filteredHosts.length === 0) {
-        container.innerHTML = this.renderEmptyState();
-        return;
-      }
-
-      // Sort hosts: pinned first, then alphabetically
-      const sortedHosts = [...this.filteredHosts].sort((a, b) => {
-        if (a.pinned && !b.pinned) return -1;
-        if (!a.pinned && b.pinned) return 1;
-        return a.name.localeCompare(b.name);
-      });
-
-      sortedHosts.forEach(host => {
-        const card = document.createElement('div');
-        card.className = 'host-card';
-        card.innerHTML = this.renderHostCard(host);
-        container.appendChild(card);
-      });
-    }
-
-    renderCompactView(container) {
-      // Reset all container styles first
-      container.innerHTML = '';
-      container.className = 'compact-view';
-      container.style.display = '';
-      container.style.gridTemplateColumns = '';
-      container.style.gap = '';
-      container.style.padding = '';
-      
-      if (this.filteredHosts.length === 0) {
-        container.innerHTML = this.renderEmptyState();
-        return;
-      }
-
-      const table = document.createElement('table');
-      table.className = 'compact-table';
-      table.innerHTML = `
-        <thead>
-          <tr>
-            <th width="30"><input type="checkbox" onchange="dashboardTreeView.toggleAllSelection(this.checked)"></th>
-            <th>Name</th>
-            <th>Host</th>
-            <th>User</th>
-            <th>Folder</th>
-            <th width="280">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${this.filteredHosts.map(host => this.renderCompactRow(host)).join('')}
-        </tbody>
-      `;
-      container.appendChild(table);
-    }
-
-    buildFolderTree() {
-      const root = { name: 'root', children: {}, hosts: [] };
-      
-      this.filteredHosts.forEach(host => {
-        const parts = host.folder_path.split('/').filter(p => p && p !== 'Ungrouped');
-        
-        let current = root;
-        let currentPath = '';
-        
-        // If no folder, add to root level "Ungrouped"
-        if (parts.length === 0) {
-          if (!current.children['Ungrouped']) {
-            current.children['Ungrouped'] = { name: 'Ungrouped', children: {}, hosts: [], path: 'Ungrouped' };
-          }
-          current.children['Ungrouped'].hosts.push(host);
-        } else {
-          // Navigate/create the folder structure
-          parts.forEach((part, index) => {
-            currentPath = currentPath ? `${currentPath}/${part}` : part;
-            
-            if (!current.children[part]) {
-              current.children[part] = { 
-                name: part, 
-                children: {}, 
-                hosts: [],
-                path: currentPath
-              };
-            }
-            current = current.children[part];
+        // View toggles
+        document.querySelectorAll('.view-toggle').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            document.querySelectorAll('.view-toggle').forEach(b => b.classList.remove('active'));
+            e.target.closest('button').classList.add('active');
+            this.currentView = e.target.closest('button').dataset.view;
+            this.render();
           });
-          
-          current.hosts.push(host);
-        }
-      });
-      
-      return root;
-    }
+        });
 
-    renderFolderNode(node, container, path, level = 0) {
-      // Sort children to render folders with hosts first, then empty folders
-      const sortedChildren = Object.entries(node.children).sort(([nameA, childA], [nameB, childB]) => {
-        const hasHostsA = this.countHostsInFolder(childA) > 0;
-        const hasHostsB = this.countHostsInFolder(childB) > 0;
-        if (hasHostsA && !hasHostsB) return -1;
-        if (!hasHostsA && hasHostsB) return 1;
-        return nameA.localeCompare(nameB);
-      });
-
-      sortedChildren.forEach(([name, childNode]) => {
-        const folderPath = childNode.path || (path ? `${path}/${name}` : name);
-        const totalHosts = this.countHostsInFolder(childNode);
-        
-        if (totalHosts > 0) {
-          const folderLi = document.createElement('li');
-          folderLi.className = 'folder-node';
-          if (level > 0) {
-            folderLi.style.marginLeft = `${level * 20}px`;
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+          if (e.ctrlKey || e.metaKey) {
+            switch(e.key) {
+              case 'f':
+                e.preventDefault();
+                document.getElementById('searchInput').focus();
+                break;
+              case 'a':
+                e.preventDefault();
+                this.selectAll();
+                break;
+            }
           }
+        });
+
+        // Load pinned hosts from localStorage
+        const saved = localStorage.getItem('pinnedHosts');
+        if (saved) {
+          this.pinnedHosts = new Set(JSON.parse(saved));
+        }
+      }
+
+      loadHostsFromTemplate() {
+        // Convert flattened host list from template
+        this.hosts = {{ all_hosts_flat|tojson }};
+        
+        // Apply pinned status
+        this.hosts.forEach(host => {
+          host.pinned = this.pinnedHosts.has(host.id);
+        });
+
+        this.filteredHosts = [...this.hosts];
+        this.render();
+        this.updateHostCounter();
+      }
+
+      filterHosts() {
+        if (!this.searchTerm) {
+          this.filteredHosts = [...this.hosts];
+          return;
+        }
+
+        this.filteredHosts = this.hosts.filter(host => 
+          host.name.toLowerCase().includes(this.searchTerm) ||
+          host.host.toLowerCase().includes(this.searchTerm) ||
+          host.folder_path.toLowerCase().includes(this.searchTerm) ||
+          host.username.toLowerCase().includes(this.searchTerm)
+        );
+      }
+
+      render() {
+        const container = document.getElementById('enhancedTreeview');
+        
+        if (this.currentView === 'grid') {
+          this.renderGridView(container);
+        } else if (this.currentView === 'compact') {
+          this.renderCompactView(container);
+        } else {
+          this.renderTreeView(container);
+        }
+        
+        this.updateBulkActions();
+        this.updateHostCounter();
+      }
+
+      renderTreeView(container) {
+        // Reset all container styles
+        container.innerHTML = '';
+        container.className = 'enhanced-treeview';
+        container.style.display = '';
+        container.style.gridTemplateColumns = '';
+        container.style.gap = '';
+        container.style.padding = '';
+
+        if (this.filteredHosts.length === 0) {
+          container.innerHTML = this.renderEmptyState();
+          return;
+        }
+
+        // Build folder hierarchy
+        const folderTree = this.buildFolderTree();
+        
+        // Render the tree recursively
+        this.renderFolderNode(folderTree, container, '');
+      }
+
+      renderGridView(container) {
+        // Reset all container styles first
+        container.innerHTML = '';
+        container.className = 'grid-view';
+        container.style.display = 'grid';
+        container.style.gridTemplateColumns = 'repeat(auto-fill, minmax(300px, 1fr))';
+        container.style.gap = '1rem';
+        container.style.padding = '1rem';
+
+        if (this.filteredHosts.length === 0) {
+          container.innerHTML = this.renderEmptyState();
+          return;
+        }
+
+        // Sort hosts: pinned first, then alphabetically
+        const sortedHosts = [...this.filteredHosts].sort((a, b) => {
+          if (a.pinned && !b.pinned) return -1;
+          if (!a.pinned && b.pinned) return 1;
+          return a.name.localeCompare(b.name);
+        });
+
+        sortedHosts.forEach(host => {
+          const card = document.createElement('div');
+          card.className = 'host-card';
+          card.innerHTML = this.renderHostCard(host);
+          container.appendChild(card);
+        });
+      }
+
+      renderCompactView(container) {
+        // Reset all container styles first
+        container.innerHTML = '';
+        container.className = 'compact-view';
+        container.style.display = '';
+        container.style.gridTemplateColumns = '';
+        container.style.gap = '';
+        container.style.padding = '';
+        
+        if (this.filteredHosts.length === 0) {
+          container.innerHTML = this.renderEmptyState();
+          return;
+        }
+
+        const table = document.createElement('table');
+        table.className = 'compact-table';
+        table.innerHTML = `
+          <thead>
+            <tr>
+              <th width="30"><input type="checkbox" onchange="dashboardTreeView.toggleAllSelection(this.checked)"></th>
+              <th>Name</th>
+              <th>Host</th>
+              <th>User</th>
+              <th>Folder</th>
+              <th width="360">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${this.filteredHosts.map(host => this.renderCompactRow(host)).join('')}
+          </tbody>
+        `;
+        container.appendChild(table);
+      }
+
+      buildFolderTree() {
+        const root = { name: 'root', children: {}, hosts: [] };
+        
+        this.filteredHosts.forEach(host => {
+          const parts = host.folder_path.split('/').filter(p => p && p !== 'Ungrouped');
           
-          const isExpanded = this.expandedFolders.has(folderPath);
+          let current = root;
+          let currentPath = '';
           
-          // Create folder header
-          const folderHeader = document.createElement('div');
-          folderHeader.className = `folder-header ${isExpanded ? 'expanded' : ''}`;
-          folderHeader.dataset.folder = folderPath;
-          folderHeader.innerHTML = `
-            <svg class="folder-toggle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="9,18 15,12 9,6"/>
-            </svg>
-            <svg class="folder-icon" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M10 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2h-8l-2-2z"/>
-            </svg>
-            <div class="folder-info">
-              <span class="folder-name">${this.renderFolderPath(folderPath)}</span>
-              <div class="folder-stats">
-                <span class="stat-badge">${totalHosts} hosts</span>
+          // If no folder, add to root level "Ungrouped"
+          if (parts.length === 0) {
+            if (!current.children['Ungrouped']) {
+              current.children['Ungrouped'] = { name: 'Ungrouped', children: {}, hosts: [], path: 'Ungrouped' };
+            }
+            current.children['Ungrouped'].hosts.push(host);
+          } else {
+            // Navigate/create the folder structure
+            parts.forEach((part, index) => {
+              currentPath = currentPath ? `${currentPath}/${part}` : part;
+              
+              if (!current.children[part]) {
+                current.children[part] = { 
+                  name: part, 
+                  children: {}, 
+                  hosts: [],
+                  path: currentPath
+                };
+              }
+              current = current.children[part];
+            });
+            
+            current.hosts.push(host);
+          }
+        });
+        
+        return root;
+      }
+
+      renderFolderNode(node, container, path, level = 0) {
+        // Sort children to render folders with hosts first, then empty folders
+        const sortedChildren = Object.entries(node.children).sort(([nameA, childA], [nameB, childB]) => {
+          const hasHostsA = this.countHostsInFolder(childA) > 0;
+          const hasHostsB = this.countHostsInFolder(childB) > 0;
+          if (hasHostsA && !hasHostsB) return -1;
+          if (!hasHostsA && hasHostsB) return 1;
+          return nameA.localeCompare(nameB);
+        });
+
+        sortedChildren.forEach(([name, childNode]) => {
+          const folderPath = childNode.path || (path ? `${path}/${name}` : name);
+          const totalHosts = this.countHostsInFolder(childNode);
+          
+          if (totalHosts > 0) {
+            const folderLi = document.createElement('li');
+            folderLi.className = 'folder-node';
+            if (level > 0) {
+              folderLi.style.marginLeft = `${level * 20}px`;
+            }
+            
+            const isExpanded = this.expandedFolders.has(folderPath);
+            
+            // Create folder header
+            const folderHeader = document.createElement('div');
+            folderHeader.className = `folder-header ${isExpanded ? 'expanded' : ''}`;
+            folderHeader.dataset.folder = folderPath;
+            folderHeader.innerHTML = `
+              <svg class="folder-toggle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="9,18 15,12 9,6"/>
+              </svg>
+              <svg class="folder-icon" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M10 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2h-8l-2-2z"/>
+              </svg>
+              <div class="folder-info">
+                <span class="folder-name">${this.renderFolderPath(folderPath)}</span>
+                <div class="folder-stats">
+                  <span class="stat-badge">${totalHosts} hosts</span>
+                </div>
+              </div>
+            `;
+            
+            // Add click event listener
+            folderHeader.addEventListener('click', () => this.toggleFolder(folderPath));
+            folderLi.appendChild(folderHeader);
+            
+            // Create hosts container
+            const hostsContainer = document.createElement('div');
+            hostsContainer.className = `hosts-container ${isExpanded ? 'expanded' : ''}`;
+            hostsContainer.dataset.folder = folderPath;
+            
+            // Add direct hosts
+            childNode.hosts.forEach(host => {
+              const hostDiv = document.createElement('div');
+              hostDiv.innerHTML = this.renderHost(host);
+              hostsContainer.appendChild(hostDiv.firstElementChild);
+            });
+            
+            // Add subfolders recursively
+            if (Object.keys(childNode.children).length > 0) {
+              const subfolderList = document.createElement('ul');
+              subfolderList.className = 'subfolder-list';
+              this.renderFolderNode(childNode, subfolderList, folderPath, level + 1);
+              hostsContainer.appendChild(subfolderList);
+            }
+            
+            folderLi.appendChild(hostsContainer);
+            container.appendChild(folderLi);
+          }
+        });
+      }
+
+      countHostsInFolder(node) {
+        let count = node.hosts.length;
+        Object.values(node.children).forEach(child => {
+          count += this.countHostsInFolder(child);
+        });
+        return count;
+      }
+
+      renderFolderPath(path) {
+        const parts = path.split('/');
+        return parts.map((part, index) => {
+          return `<span class="folder-part">${part}</span>`;
+        }).join('<span class="folder-separator">/</span>');
+      }
+
+      renderHostCard(host) {
+        const isSelected = this.selectedHosts.has(host.id);
+        const isPinned = host.pinned;
+        
+        return `
+          <div class="host-grid-card ${isPinned ? 'pinned' : ''}">
+            <div class="card-header">
+              <input type="checkbox" class="host-checkbox" ${isSelected ? 'checked' : ''} 
+                    onchange="dashboardTreeView.toggleHostSelection(${host.id})">
+              <h4 class="host-name">${host.name}</h4>
+              ${isPinned ? '<span class="pin-indicator">📌</span>' : ''}
+            </div>
+            <div class="card-body">
+              <div class="host-info-grid">
+                <span class="info-label">Host:</span>
+                <span class="info-value">${host.host}</span>
+                <span class="info-label">User:</span>
+                <span class="info-value">${host.username}</span>
+                <span class="info-label">Folder:</span>
+                <span class="info-value">${host.folder_path}</span>
               </div>
             </div>
-          `;
-          
-          // Add click event listener
-          folderHeader.addEventListener('click', () => this.toggleFolder(folderPath));
-          folderLi.appendChild(folderHeader);
-          
-          // Create hosts container
-          const hostsContainer = document.createElement('div');
-          hostsContainer.className = `hosts-container ${isExpanded ? 'expanded' : ''}`;
-          hostsContainer.dataset.folder = folderPath;
-          
-          // Add direct hosts
-          childNode.hosts.forEach(host => {
-            const hostDiv = document.createElement('div');
-            hostDiv.innerHTML = this.renderHost(host);
-            hostsContainer.appendChild(hostDiv.firstElementChild);
-          });
-          
-          // Add subfolders recursively
-          if (Object.keys(childNode.children).length > 0) {
-            const subfolderList = document.createElement('ul');
-            subfolderList.className = 'subfolder-list';
-            this.renderFolderNode(childNode, subfolderList, folderPath, level + 1);
-            hostsContainer.appendChild(subfolderList);
-          }
-          
-          folderLi.appendChild(hostsContainer);
-          container.appendChild(folderLi);
-        }
-      });
-    }
+            <div class="card-actions">
+              <button class="grid-action combined" onclick="openCombinedTerminal(${host.id}, '${host.name}')" title="Combined Terminal & SFTP">⚡</button>
+              <button class="grid-action terminal-overlay" onclick="openTerminalOverlay(${host.id}, '${host.name}', '${host.host}')" title="Terminal Overlay">💻</button>
+              <button class="grid-action terminal-popup" onclick="openTerminalPopup(${host.id}, '${host.name}', '${host.host}')" title="Terminal Popup">🖥️</button>
+              <button class="grid-action" onclick="openSftp(${host.id})" title="SFTP Browser">📁</button>
+              <button class="grid-action" onclick="openWeb('${host.host}')" title="Web Interface">🌐</button>
+              <button class="grid-action" onclick="openTD('${host.host}')" title="TD Interface">📊</button>
+              <button class="grid-action" onclick="openPort9090('${host.host}')" title="Moby Interface">🐳</button>
+              <button class="grid-action" onclick="dashboardTreeView.togglePin(${host.id})" title="${isPinned ? 'Unpin' : 'Pin'}">
+                ${isPinned ? '📌' : '📍'}
+              </button>
+              <button class="grid-action" onclick="window.location.href='/edit_host?host_id=${host.id}'" title="Edit Host">✏️</button>
+              <form method="post" action="/delete_host" style="display:inline;">
+                <input type="hidden" name="host_id" value="${host.id}">
+                <button type="submit" class="grid-action delete" onclick="return confirm('Delete ${host.name}?')" title="Delete Host">🗑️</button>
+              </form>
+            </div>
+          </div>
+        `;
+      }
 
-    countHostsInFolder(node) {
-      let count = node.hosts.length;
-      Object.values(node.children).forEach(child => {
-        count += this.countHostsInFolder(child);
-      });
-      return count;
-    }
+      renderCompactRow(host) {
+        const isSelected = this.selectedHosts.has(host.id);
+        const isPinned = host.pinned;
+        
+        return `
+          <tr class="compact-row ${isPinned ? 'pinned' : ''}">
+            <td><input type="checkbox" class="host-checkbox" ${isSelected ? 'checked' : ''} 
+                  onchange="dashboardTreeView.toggleHostSelection(${host.id})"></td>
+            <td class="host-name">
+              ${host.name}
+              ${isPinned ? '<span class="pin-indicator">📌</span>' : ''}
+            </td>
+            <td class="host-ip">${host.host}</td>
+            <td class="host-user">${host.username}</td>
+            <td class="host-folder">${host.folder_path}</td>
+            <td class="compact-actions">
+              <button class="compact-action combined" onclick="openCombinedTerminal(${host.id}, '${host.name}')" title="Combined Terminal & SFTP">⚡</button>
+              <button class="compact-action terminal-overlay" onclick="openTerminalOverlay(${host.id}, '${host.name}', '${host.host}')" title="Terminal Overlay">💻</button>
+              <button class="compact-action terminal-popup" onclick="openTerminalPopup(${host.id}, '${host.name}', '${host.host}')" title="Terminal Popup">🖥️</button>
+              <button class="compact-action" onclick="openSftp(${host.id})" title="SFTP Browser">📁</button>
+              <button class="compact-action" onclick="openWeb('${host.host}')" title="Web Interface">🌐</button>
+              <button class="compact-action" onclick="openTD('${host.host}')" title="TD Interface">📊</button>
+              <button class="compact-action" onclick="openPort9090('${host.host}')" title="Moby Interface">🐳</button>
+              <button class="compact-action" onclick="dashboardTreeView.togglePin(${host.id})" title="${isPinned ? 'Unpin' : 'Pin'}">
+                ${isPinned ? '📌' : '📍'}
+              </button>
+              <button class="compact-action" onclick="window.location.href='/edit_host?host_id=${host.id}'" title="Edit Host">✏️</button>
+              <form method="post" action="/delete_host" style="display:inline;">
+                <input type="hidden" name="host_id" value="${host.id}">
+                <button type="submit" class="compact-action delete" onclick="return confirm('Delete ${host.name}?')" title="Delete Host">🗑️</button>
+              </form>
+            </td>
+          </tr>
+        `;
+      }
 
-    renderFolderPath(path) {
-      const parts = path.split('/');
-      return parts.map((part, index) => {
-        return `<span class="folder-part">${part}</span>`;
-      }).join('<span class="folder-separator">/</span>');
-    }
+      renderEmptyState() {
+        return `
+          <div class="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"/>
+              <path d="m21 21-4.35-4.35"/>
+            </svg>
+            <p>No hosts found matching "${this.searchTerm}"</p>
+            <small>Try adjusting your search criteria</small>
+          </div>
+        `;
+      }
 
-    renderHostCard(host) {
-      const isSelected = this.selectedHosts.has(host.id);
-      const isPinned = host.pinned;
-      
-      return `
-        <div class="host-grid-card ${isPinned ? 'pinned' : ''}">
-          <div class="card-header">
+      renderHost(host) {
+        const isSelected = this.selectedHosts.has(host.id);
+        const isPinned = host.pinned;
+        
+        return `
+          <div class="host-node ${isSelected ? 'selected' : ''} ${isPinned ? 'pinned' : ''}" data-host-id="${host.id}">
             <input type="checkbox" class="host-checkbox" ${isSelected ? 'checked' : ''} 
                   onchange="dashboardTreeView.toggleHostSelection(${host.id})">
-            <h4 class="host-name">${host.name}</h4>
-            ${isPinned ? '<span class="pin-indicator">📌</span>' : ''}
-          </div>
-          <div class="card-body">
-            <div class="host-info-grid">
-              <span class="info-label">Host:</span>
-              <span class="info-value">${host.host}</span>
-              <span class="info-label">User:</span>
-              <span class="info-value">${host.username}</span>
-              <span class="info-label">Folder:</span>
-              <span class="info-value">${host.folder_path}</span>
+            <svg class="host-icon" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M4,1H20A1,1 0 0,1 21,2V6A1,1 0 0,1 20,7H4A1,1 0 0,1 3,6V2A1,1 0 0,1 4,1M4,9H20A1,1 0 0,1 21,10V14A1,1 0 0,1 20,15H4A1,1 0 0,1 3,14V10A1,1 0 0,1 4,9M4,17H20A1,1 0 0,1 21,18V22A1,1 0 0,1 20,23H4A1,1 0 0,1 3,22V18A1,1 0 0,1 4,17M5,2V6H19V2H5M5,10V14H19V10H5M5,18V22H19V18H5M7,4V4.5H9V4H7M7,12V12.5H9V12H7M7,20V20.5H9V20H7Z"/>
+            </svg>
+            <div class="host-info">
+              <div class="host-name">${host.name}</div>
+              <div class="host-details">
+                <span class="host-ip">${host.host}</span>
+                <span class="host-user">${host.username}</span>
+              </div>
+            </div>
+            <div class="host-actions">
+              <button class="emoji-action combined" onclick="openCombinedTerminal(${host.id}, '${host.name}')" title="Combined Terminal & SFTP">⚡</button>
+              <button class="emoji-action terminal-overlay" onclick="openTerminalOverlay(${host.id}, '${host.name}', '${host.host}')" title="Terminal Overlay">💻</button>
+              <button class="emoji-action terminal-popup" onclick="openTerminalPopup(${host.id}, '${host.name}', '${host.host}')" title="Terminal Popup">🖥️</button>
+              <button class="emoji-action" onclick="openSftp(${host.id})" title="SFTP Browser">📁</button>
+              <button class="emoji-action" onclick="openWeb('${host.host}')" title="Web Interface">🌐</button>
+              <button class="emoji-action" onclick="openTD('${host.host}')" title="TD Interface">📊</button>
+              <button class="emoji-action" onclick="openPort9090('${host.host}')" title="Moby Interface">🐳</button>
+              <button class="emoji-action ${isPinned ? 'pinned' : ''}" onclick="dashboardTreeView.togglePin(${host.id})" title="${isPinned ? 'Unpin' : 'Pin'}">
+                ${isPinned ? '📌' : '📍'}
+              </button>
+              <button class="emoji-action" onclick="window.location.href='/edit_host?host_id=${host.id}'" title="Edit Host">✏️</button>
+              
+              <!-- Delete button -->
+              <form method="post" action="/delete_host" style="display:inline;">
+                <input type="hidden" name="host_id" value="${host.id}">
+                <button type="submit" class="emoji-action delete" onclick="return confirm('Delete ${host.name}?')" title="Delete Host">🗑️</button>
+              </form>
             </div>
           </div>
-          <div class="card-actions">
-            <button class="grid-action combined" onclick="openCombinedTerminal(${host.id}, '${host.name}')" title="Combined Terminal & SFTP">⚡</button>
-            <button class="grid-action" onclick="openTerminalOverlay(${host.id}, '${host.name}', '${host.host}')" title="Full Terminal">💻</button>
-            <button class="grid-action" onclick="openSftp(${host.id})" title="SFTP Browser">📁</button>
-            <button class="grid-action" onclick="openWeb('${host.host}')" title="Web Interface">🌐</button>
-            <button class="grid-action" onclick="openTD('${host.host}')" title="TD Interface">📊</button>
-            <button class="grid-action" onclick="openPort9090('${host.host}')" title="Moby Interface">🐳</button>
-            <button class="grid-action" onclick="dashboardTreeView.togglePin(${host.id})" title="${isPinned ? 'Unpin' : 'Pin'}">
-              ${isPinned ? '📌' : '📍'}
-            </button>
-            <button class="grid-action" onclick="window.location.href='/edit_host?host_id=${host.id}'" title="Edit Host">✏️</button>
-            <form method="post" action="/delete_host" style="display:inline;">
-              <input type="hidden" name="host_id" value="${host.id}">
-              <button type="submit" class="grid-action delete" onclick="return confirm('Delete ${host.name}?')" title="Delete Host">🗑️</button>
-            </form>
-          </div>
-        </div>
-      `;
-    }
-
-    renderCompactRow(host) {
-      const isSelected = this.selectedHosts.has(host.id);
-      const isPinned = host.pinned;
-      
-      return `
-        <tr class="compact-row ${isPinned ? 'pinned' : ''}">
-          <td><input type="checkbox" class="host-checkbox" ${isSelected ? 'checked' : ''} 
-                 onchange="dashboardTreeView.toggleHostSelection(${host.id})"></td>
-          <td class="host-name">
-            ${host.name}
-            ${isPinned ? '<span class="pin-indicator">📌</span>' : ''}
-          </td>
-          <td class="host-ip">${host.host}</td>
-          <td class="host-user">${host.username}</td>
-          <td class="host-folder">${host.folder_path}</td>
-          <td class="compact-actions">
-            <button class="compact-action" onclick="openPopup(${host.id}, '${host.name}', '${host.host}')" title="Quick Terminal">⚡</button>
-            <button class="compact-action combined" onclick="openCombinedTerminal(${host.id}, '${host.name}')" title="Combined Terminal & SFTP">💻+📁</button>
-            <button class="compact-action" onclick="openTerminalOverlay(${host.id}, '${host.name}', '${host.host}')" title="Full Terminal">💻</button>
-            <button class="compact-action" onclick="openWeb('${host.host}')" title="Web Interface">🌐</button>
-            <button class="compact-action" onclick="openTD('${host.host}')" title="TD Interface">📊</button>
-            <button class="compact-action" onclick="openPort9090('${host.host}')" title="Moby Interface">🐳</button>
-            <button class="compact-action" onclick="openSftp(${host.id})" title="SFTP Browser">📁</button>
-            <button class="compact-action" onclick="dashboardTreeView.togglePin(${host.id})" title="${isPinned ? 'Unpin' : 'Pin'}">
-              ${isPinned ? '📌' : '📍'}
-            </button>
-            <button class="compact-action" onclick="window.location.href='/edit_host?host_id=${host.id}'" title="Edit Host">✏️</button>
-            <form method="post" action="/delete_host" style="display:inline;">
-              <input type="hidden" name="host_id" value="${host.id}">
-              <button type="submit" class="compact-action delete" onclick="return confirm('Delete ${host.name}?')" title="Delete Host">🗑️</button>
-            </form>
-          </td>
-        </tr>
-      `;
-    }
-
-    renderEmptyState() {
-      return `
-        <div class="empty-state">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="11" cy="11" r="8"/>
-            <path d="m21 21-4.35-4.35"/>
-          </svg>
-          <p>No hosts found matching "${this.searchTerm}"</p>
-          <small>Try adjusting your search criteria</small>
-        </div>
-      `;
-    }
-
-    renderHost(host) {
-      const isSelected = this.selectedHosts.has(host.id);
-      const isPinned = host.pinned;
-      
-      return `
-        <div class="host-node ${isSelected ? 'selected' : ''} ${isPinned ? 'pinned' : ''}" data-host-id="${host.id}">
-          <input type="checkbox" class="host-checkbox" ${isSelected ? 'checked' : ''} 
-                onchange="dashboardTreeView.toggleHostSelection(${host.id})">
-          <svg class="host-icon" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M4,1H20A1,1 0 0,1 21,2V6A1,1 0 0,1 20,7H4A1,1 0 0,1 3,6V2A1,1 0 0,1 4,1M4,9H20A1,1 0 0,1 21,10V14A1,1 0 0,1 20,15H4A1,1 0 0,1 3,14V10A1,1 0 0,1 4,9M4,17H20A1,1 0 0,1 21,18V22A1,1 0 0,1 20,23H4A1,1 0 0,1 3,22V18A1,1 0 0,1 4,17M5,2V6H19V2H5M5,10V14H19V10H5M5,18V22H19V18H5M7,4V4.5H9V4H7M7,12V12.5H9V12H7M7,20V20.5H9V20H7Z"/>
-          </svg>
-          <div class="host-info">
-            <div class="host-name">${host.name}</div>
-            <div class="host-details">
-              <span class="host-ip">${host.host}</span>
-              <span class="host-user">${host.username}</span>
-            </div>
-          </div>
-          <div class="host-actions">
-            <button class="emoji-action combined" onclick="openCombinedTerminal(${host.id}, '${host.name}')" title="Combined Terminal & SFTP">⚡</button>
-            <button class="emoji-action" onclick="openTerminalOverlay(${host.id}, '${host.name}', '${host.host}')" title="Full Terminal">💻</button>
-            <button class="emoji-action" onclick="openSftp(${host.id})" title="SFTP Browser">📁</button>
-            <button class="emoji-action" onclick="openWeb('${host.host}')" title="Web Interface">🌐</button>
-            <button class="emoji-action" onclick="openTD('${host.host}')" title="TD Interface">📊</button>
-            <button class="emoji-action" onclick="openPort9090('${host.host}')" title="Moby Interface">🐳</button>
-            <button class="emoji-action ${isPinned ? 'pinned' : ''}" onclick="dashboardTreeView.togglePin(${host.id})" title="${isPinned ? 'Unpin' : 'Pin'}">
-              ${isPinned ? '📌' : '📍'}
-            </button>
-            <button class="emoji-action" onclick="window.location.href='/edit_host?host_id=${host.id}'" title="Edit Host">✏️</button>
-            <form method="post" action="/delete_host" style="display:inline;">
-              <input type="hidden" name="host_id" value="${host.id}">
-              <button type="submit" class="emoji-action delete" onclick="return confirm('Delete ${host.name}?')" title="Delete Host">🗑️</button>
-            </form>
-          </div>
-        </div>
-      `;
-    }
-
-    toggleFolder(folderName) {
-      const willExpand = !this.expandedFolders.has(folderName);
-      if (willExpand) {
-        this.expandedFolders.add(folderName);
-      } else {
-        this.expandedFolders.delete(folderName);
+        `;
       }
 
-      // In-place toggle to avoid full re-render jitter
-      const header = document.querySelector(`.folder-header[data-folder="${folderName}"]`);
-      const container = document.querySelector(`.hosts-container[data-folder="${folderName}"]`);
-      if (header && container) {
-        header.classList.toggle('expanded', willExpand);
+      // FIXED: This was the bug - "willExpanded" should be "willExpand"
+      toggleFolder(folderName) {
+        const willExpand = !this.expandedFolders.has(folderName);
         if (willExpand) {
-          container.classList.add('expanded');
-          // Remove any inline max-height that may clip content
-          container.style.maxHeight = '';
+          this.expandedFolders.add(folderName);
         } else {
-          container.classList.remove('expanded');
-          container.style.maxHeight = '';
+          this.expandedFolders.delete(folderName);
         }
-      } else {
-        // Fallback: re-render if nodes not found (e.g., after drastic state change)
+
+        // In-place toggle to avoid full re-render jitter
+        const header = document.querySelector(`.folder-header[data-folder="${folderName}"]`);
+        const container = document.querySelector(`.hosts-container[data-folder="${folderName}"]`);
+        if (header && container) {
+          header.classList.toggle('expanded', willExpand);
+          if (willExpand) {
+            container.classList.add('expanded');
+            // Remove any inline max-height that may clip content
+            container.style.maxHeight = '';
+          } else {
+            container.classList.remove('expanded');
+            container.style.maxHeight = '';
+          }
+        } else {
+          // Fallback: re-render if nodes not found (e.g., after drastic state change)
+          this.render();
+        }
+      }
+
+      toggleHostSelection(hostId) {
+        if (this.selectedHosts.has(hostId)) {
+          this.selectedHosts.delete(hostId);
+        } else {
+          this.selectedHosts.add(hostId);
+        }
+        this.updateBulkActions();
+      }
+
+      toggleAllSelection(checked) {
+        if (checked) {
+          this.filteredHosts.forEach(host => {
+            this.selectedHosts.add(host.id);
+          });
+        } else {
+          this.selectedHosts.clear();
+        }
         this.render();
       }
-    }
 
-    toggleHostSelection(hostId) {
-      if (this.selectedHosts.has(hostId)) {
-        this.selectedHosts.delete(hostId);
-      } else {
-        this.selectedHosts.add(hostId);
+      togglePin(hostId) {
+        const host = this.hosts.find(h => h.id === hostId);
+        if (host) {
+          host.pinned = !host.pinned;
+          if (host.pinned) {
+            this.pinnedHosts.add(hostId);
+          } else {
+            this.pinnedHosts.delete(hostId);
+          }
+          
+          // Save to localStorage
+          localStorage.setItem('pinnedHosts', JSON.stringify([...this.pinnedHosts]));
+          this.render();
+        }
       }
-      this.updateBulkActions();
-    }
 
-    toggleAllSelection(checked) {
-      if (checked) {
+      selectAll() {
         this.filteredHosts.forEach(host => {
           this.selectedHosts.add(host.id);
         });
-      } else {
-        this.selectedHosts.clear();
-      }
-      this.render();
-    }
-
-    togglePin(hostId) {
-      const host = this.hosts.find(h => h.id === hostId);
-      if (host) {
-        host.pinned = !host.pinned;
-        if (host.pinned) {
-          this.pinnedHosts.add(hostId);
-        } else {
-          this.pinnedHosts.delete(hostId);
-        }
-        
-        // Save to localStorage
-        localStorage.setItem('pinnedHosts', JSON.stringify([...this.pinnedHosts]));
         this.render();
       }
-    }
 
-    selectAll() {
-      this.filteredHosts.forEach(host => {
-        this.selectedHosts.add(host.id);
-      });
-      this.render();
-    }
+      updateBulkActions() {
+        const bulkActions = document.getElementById('bulkActions');
+        const selectedCount = document.getElementById('selectedCount');
+        
+        if (this.selectedHosts.size > 0) {
+          bulkActions.classList.add('visible');
+          selectedCount.textContent = `${this.selectedHosts.size} selected`;
+        } else {
+          bulkActions.classList.remove('visible');
+        }
+      }
 
-    updateBulkActions() {
-      const bulkActions = document.getElementById('bulkActions');
-      const selectedCount = document.getElementById('selectedCount');
-      
-      if (this.selectedHosts.size > 0) {
-        bulkActions.classList.add('visible');
-        selectedCount.textContent = `${this.selectedHosts.size} selected`;
-      } else {
-        bulkActions.classList.remove('visible');
+      updateHostCounter() {
+        const counter = document.getElementById('hostCounter');
+        const totalCounter = document.getElementById('total-hosts-count');
+        
+        if (counter) {
+          counter.textContent = `${this.filteredHosts.length} hosts`;
+        }
+        
+        if (totalCounter) {
+          totalCounter.textContent = this.hosts.length;
+        }
       }
     }
 
-    updateHostCounter() {
-      const counter = document.getElementById('hostCounter');
-      const totalCounter = document.getElementById('total-hosts-count');
-      
-      if (counter) {
-        counter.textContent = `${this.filteredHosts.length} hosts`;
-      }
-      
-      if (totalCounter) {
-        totalCounter.textContent = this.hosts.length;
-      }
-    }
-  }
-
-  // Initialize the enhanced tree view when DOM is ready
-  document.addEventListener('DOMContentLoaded', function() {
-    window.dashboardTreeView = new DashboardTreeView();
-  });
-
-  // Bulk operation functions
-  function bulkTerminal() {
-    const selectedHosts = Array.from(dashboardTreeView.selectedHosts);
-    selectedHosts.forEach(hostId => {
-      const host = dashboardTreeView.hosts.find(h => h.id === hostId);
-      if (host) {
-        openPopup(host.id, host.name, host.host);
-      }
+    // Initialize the enhanced tree view when DOM is ready
+    document.addEventListener('DOMContentLoaded', function() {
+      window.dashboardTreeView = new DashboardTreeView();
     });
-    dashboardTreeView.selectedHosts.clear();
-    dashboardTreeView.updateBulkActions();
-  }
 
-  function bulkCommand() {
-    const selectedHosts = Array.from(dashboardTreeView.selectedHosts);
-    const hostList = selectedHosts.map(hostId => {
-      const host = dashboardTreeView.hosts.find(h => h.id === hostId);
-      return host ? host.host : null;
-    }).filter(Boolean);
-    
-    // Redirect to MultiExec with pre-populated hosts
-    const url = `/portal?hosts=${encodeURIComponent(hostList.join(','))}`;
-    window.open(url, '_blank');
-  }
+    // THREE TERMINAL FUNCTIONS:
 
-  function bulkMove() {
-    const selectedHosts = Array.from(dashboardTreeView.selectedHosts);
-    const newFolder = prompt('Enter new folder path (e.g., Production/Web):');
-    
-    if (newFolder !== null) {
-      // Implement bulk move logic - you'll need to create this endpoint
-      console.log('Moving hosts to folder:', newFolder, selectedHosts);
-      // Example: POST to /api/bulk_move with {hosts: selectedHosts, folder: newFolder}
+    // 1. Combined Terminal & SFTP (⚡ icon) - Split view with SFTP + Terminal
+    function openCombinedTerminal(hostId, hostName) {
+      console.log('Opening combined terminal for:', hostId, hostName);
+      
+      const windowName = `combined_${hostId}_${Date.now()}`;
+      const features = [
+          'width=1400',
+          'height=900',
+          'toolbar=no',
+          'location=no',
+          'status=no',
+          'menubar=no',
+          'scrollbars=yes',
+          'resizable=yes',
+          'left=' + (screen.width / 2 - 700),
+          'top=' + (screen.height / 2 - 450)
+      ].join(',');
+      
+      const url = `/terminal-combined?host_id=${hostId}`;
+      
+      try {
+          const newWindow = window.open(url, windowName, features);
+          
+          if (!newWindow) {
+              alert('Popup blocked! Please allow popups for this site and try again.');
+              return;
+          }
+          
+          newWindow.focus();
+          
+      } catch (error) {
+          console.error('Error opening combined terminal:', error);
+          alert('Error opening combined terminal: ' + error.message);
+      }
     }
-  }
 
-  function bulkDelete() {
-    const selectedHosts = Array.from(dashboardTreeView.selectedHosts);
-    if (confirm(`Delete ${selectedHosts.length} selected hosts? This action cannot be undone.`)) {
-      fetch('/bulk_delete_hosts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ host_ids: selectedHosts })
-      })
-      .then(res => {
-        if (!res.ok) throw new Error('Bulk delete failed');
-        return res.json();
-      })
-      .then(() => {
-        // Refresh the page to reflect deletions
-        window.location.reload();
-      })
-      .catch(err => {
-        alert('Error deleting hosts: ' + err.message);
+    // 2. Terminal Overlay (💻 icon) - Full screen overlay (existing functionality)
+    function openTerminalOverlay(hostId, hostName, hostAddr) {
+      console.log('Opening terminal overlay for:', hostId, hostName);
+      
+      // Show the existing terminal overlay
+      const overlay = document.getElementById('terminal-overlay');
+      const terminalContainer = document.getElementById('terminal');
+      
+      if (overlay) {
+        overlay.classList.add('open');
+        
+        // Initialize terminal in overlay - you may need to adapt this based on your existing code
+        initializeTerminalOverlay(hostId, hostName, hostAddr);
+      } else {
+        console.error('Terminal overlay not found - using popup fallback');
+        openTerminalPopup(hostId, hostName, hostAddr);
+      }
+    }
+
+    // 3. Terminal Popup (🖥️ icon) - Simple popup window (for bulk actions)
+    function openTerminalPopup(hostId, hostName, hostAddr) {
+      console.log('Opening terminal popup for:', hostId, hostName);
+      
+      const windowName = `terminal_popup_${hostId}_${Date.now()}`;
+      const features = [
+          'width=1000',
+          'height=700',
+          'toolbar=no',
+          'location=no',
+          'status=no',
+          'menubar=no',
+          'scrollbars=yes',
+          'resizable=yes',
+          'left=' + (screen.width / 2 - 500),
+          'top=' + (screen.height / 2 - 350)
+      ].join(',');
+      
+      const url = `/terminal?host_id=${hostId}`;
+      
+      try {
+          const newWindow = window.open(url, windowName, features);
+          
+          if (!newWindow) {
+              alert('Popup blocked! Please allow popups for this site and try again.');
+              return;
+          }
+          
+          newWindow.focus();
+          
+      } catch (error) {
+          console.error('Error opening terminal popup:', error);
+          alert('Error opening terminal popup: ' + error.message);
+      }
+    }
+
+    // Helper function for terminal overlay initialization
+    function initializeTerminalOverlay(hostId, hostName, hostAddr) {
+      // This should integrate with your existing terminal overlay code
+      // You may need to adapt this based on how your current overlay works
+      console.log('Initializing terminal overlay for host:', hostId);
+      
+      // Example implementation - adapt to your existing code:
+      if (typeof initTerminalInOverlay === 'function') {
+        initTerminalInOverlay(hostId);
+      }
+    }
+
+    // BULK OPERATIONS - Only uses Terminal Popup (🖥️)
+    function bulkTerminal() {
+      const selectedHosts = Array.from(dashboardTreeView.selectedHosts);
+      selectedHosts.forEach(hostId => {
+        const host = dashboardTreeView.hosts.find(h => h.id === hostId);
+        if (host) {
+          // Use Terminal Popup for bulk operations
+          openTerminalPopup(host.id, host.name, host.host);
+        }
       });
+      dashboardTreeView.selectedHosts.clear();
+      dashboardTreeView.updateBulkActions();
     }
-  }
 
-  function openCombinedTerminal(hostId, hostName) {
-    const windowName = `combined_${hostId}_${Date.now()}`;
-    const features = [
-        'width=1200',
-        'height=900',
-        'toolbar=no',
-        'location=no',
-        'status=no',
-        'menubar=no',
-        'scrollbars=yes',
-        'resizable=yes'
-    ].join(',');
-    
-    window.open(
-        `/terminal-combined?host_id=${hostId}`,
-        windowName,
-        features
-    );
-  }
+    function bulkCommand() {
+      const selectedHosts = Array.from(dashboardTreeView.selectedHosts);
+      const hostList = selectedHosts.map(hostId => {
+        const host = dashboardTreeView.hosts.find(h => h.id === hostId);
+        return host ? host.host : null;
+      }).filter(Boolean);
+      
+      // Redirect to MultiExec with pre-populated hosts
+      const url = `/portal?hosts=${encodeURIComponent(hostList.join(','))}`;
+      window.open(url, '_blank');
+    }
+
+    function bulkMove() {
+      const selectedHosts = Array.from(dashboardTreeView.selectedHosts);
+      const newFolder = prompt('Enter new folder path (e.g., Production/Web):');
+      
+      if (newFolder !== null) {
+        // Implement bulk move logic - you'll need to create this endpoint
+        console.log('Moving hosts to folder:', newFolder, selectedHosts);
+        // Example: POST to /api/bulk_move with {hosts: selectedHosts, folder: newFolder}
+      }
+    }
+
+    function bulkDelete() {
+      const selectedHosts = Array.from(dashboardTreeView.selectedHosts);
+      if (confirm(`Delete ${selectedHosts.length} selected hosts? This action cannot be undone.`)) {
+        fetch('/bulk_delete_hosts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ host_ids: selectedHosts })
+        })
+        .then(res => {
+          if (!res.ok) throw new Error('Bulk delete failed');
+          return res.json();
+        })
+        .then(() => {
+          // Refresh the page to reflect deletions
+          window.location.reload();
+        })
+        .catch(err => {
+          alert('Error deleting hosts: ' + err.message);
+        });
+      }
+    }
+
+    // Add CSS for all three terminal button types
+    const terminalButtonStyles = `
+      /* Combined Terminal & SFTP Button (⚡) */
+      .grid-action.combined,
+      .compact-action.combined,
+      .emoji-action.combined {
+        background: linear-gradient(135deg, #a855f7 0%, #8b5cf6 100%);
+        color: white;
+        border-color: #a855f7;
+        position: relative;
+        font-weight: bold;
+      }
+
+      .grid-action.combined:hover,
+      .compact-action.combined:hover,
+      .emoji-action.combined:hover {
+        background: linear-gradient(135deg, #9333ea 0%, #7c3aed 100%);
+        border-color: #9333ea;
+        transform: scale(1.1);
+        box-shadow: 0 4px 12px rgba(168, 85, 247, 0.4);
+      }
+
+      /* Terminal Overlay Button (💻) */
+      .grid-action.terminal-overlay,
+      .compact-action.terminal-overlay,
+      .emoji-action.terminal-overlay {
+        background: linear-gradient(135deg, #1f2937 0%, #374151 100%);
+        color: white;
+        border-color: #374151;
+        position: relative;
+      }
+
+      .grid-action.terminal-overlay:hover,
+      .compact-action.terminal-overlay:hover,
+      .emoji-action.terminal-overlay:hover {
+        background: linear-gradient(135deg, #374151 0%, #4b5563 100%);
+        border-color: #58a6ff;
+        transform: scale(1.1);
+        box-shadow: 0 4px 12px rgba(88, 166, 255, 0.3);
+      }
+
+      /* Terminal Popup Button (🖥️) */
+      .grid-action.terminal-popup,
+      .compact-action.terminal-popup,
+      .emoji-action.terminal-popup {
+        background: linear-gradient(135deg, #059669 0%, #047857 100%);
+        color: white;
+        border-color: #059669;
+        position: relative;
+      }
+
+      .grid-action.terminal-popup:hover,
+      .compact-action.terminal-popup:hover,
+      .emoji-action.terminal-popup:hover {
+        background: linear-gradient(135deg, #047857 0%, #065f46 100%);
+        border-color: #10b981;
+        transform: scale(1.1);
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+      }
+
+      /* Add indicator dots for each type */
+      .combined::after {
+        content: '';
+        position: absolute;
+        top: 2px;
+        right: 2px;
+        width: 6px;
+        height: 6px;
+        background: #fbbf24;
+        border-radius: 50%;
+        border: 1px solid white;
+      }
+
+      .terminal-overlay::after {
+        content: '';
+        position: absolute;
+        top: 2px;
+        right: 2px;
+        width: 6px;
+        height: 6px;
+        background: #58a6ff;
+        border-radius: 50%;
+        border: 1px solid white;
+      }
+
+      .terminal-popup::after {
+        content: '';
+        position: absolute;
+        top: 2px;
+        right: 2px;
+        width: 6px;
+        height: 6px;
+        background: #10b981;
+        border-radius: 50%;
+        border: 1px solid white;
+      }
+    `;
+
+    // Inject the styles
+    if (!document.getElementById('terminal-button-styles')) {
+      const styleSheet = document.createElement('style');
+      styleSheet.id = 'terminal-button-styles';
+      styleSheet.textContent = terminalButtonStyles;
+      document.head.appendChild(styleSheet);
+    }
+
+    // Rest of your existing functions (toggleSection, countTotalHosts, etc.)
+    function toggleSection(sectionId) {
+      const content = document.getElementById(sectionId);
+      const header = event.currentTarget;
+      
+      if (content.style.display === 'none') {
+        content.style.display = 'block';
+        content.classList.add('show');
+        header.classList.add('active');
+      } else {
+        content.classList.remove('show');
+        header.classList.remove('active');
+        setTimeout(() => {
+          content.style.display = 'none';
+        }, 300);
+      }
+    }
+
+    function countTotalHosts() {
+      const countElement = document.getElementById('total-hosts-count');
+      if (countElement && window.dashboardTreeView) {
+        countElement.textContent = window.dashboardTreeView.hosts.length;
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      setTimeout(() => {
+        if (window.dashboardTreeView) {
+          document.getElementById('total-hosts-count').textContent = window.dashboardTreeView.hosts.length;
+        }
+      }, 1000);
+    });
   </script>
-
   
 
   <!-- Admin Section -->

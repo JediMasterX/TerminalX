@@ -375,7 +375,8 @@
         let terminalState = {
             connected: false,
             socket: null,
-            term: null
+            term: null,
+            searchAddon: null
         };
         
         let sftpState = {
@@ -384,8 +385,8 @@
             url: null
         };
 
-        console.log('🔴 RED BORDER = SFTP Panel (should be on LEFT)');
-        console.log('🔵 BLUE BORDER = Terminal Panel (should be on RIGHT)');
+        console.log('Left panel = SFTP Panel (should be on LEFT)');
+        console.log('Right panel = Terminal Panel (should be on RIGHT)');
 
         // Initialize terminal
         function initializeTerminal() {
@@ -404,14 +405,17 @@
 
             const fitAddon = new FitAddon.FitAddon();
             const webLinksAddon = new WebLinksAddon.WebLinksAddon();
+            const searchAddon = new SearchAddon.SearchAddon();
             
             term.loadAddon(fitAddon);
             term.loadAddon(webLinksAddon);
+            term.loadAddon(searchAddon);
 
             const terminalContainer = document.getElementById("terminal");
             term.open(terminalContainer);
             
             terminalState.term = term;
+            terminalState.searchAddon = searchAddon;
 
             // Connect WebSocket
             connectTerminal();
@@ -423,11 +427,132 @@
 
             window.addEventListener('resize', resizeTerminal);
 
+            // Keyboard shortcuts
+            document.addEventListener('keydown', (e) => {
+                // Ctrl+F for search (only when terminal is focused or no input is focused)
+                if (e.ctrlKey && e.key === 'f') {
+                    const activeElement = document.activeElement;
+                    const isInputFocused = activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA');
+                    
+                    // Only intercept Ctrl+F if no input is focused, or if terminal container is focused
+                    if (!isInputFocused || terminalContainer.contains(activeElement)) {
+                        e.preventDefault();
+                        openSearch();
+                    }
+                }
+                
+                // Escape to close search
+                if (e.key === 'Escape') {
+                    closeSearch();
+                }
+            });
+
             // Initial fit
             setTimeout(resizeTerminal, 100);
 
             return { term, fitAddon };
         }
+
+        // Terminal search functions
+        function openSearch() {
+            const searchBar = document.getElementById('terminalSearch');
+            const searchInput = document.getElementById('searchInput');
+            
+            searchBar.classList.add('visible');
+            searchInput.focus();
+            searchInput.select();
+            
+            console.log('🔍 Terminal search opened');
+        }
+
+        function closeSearch() {
+            const searchBar = document.getElementById('terminalSearch');
+            const searchInput = document.getElementById('searchInput');
+            
+            searchBar.classList.remove('visible');
+            searchInput.value = '';
+            
+            // Clear any existing search highlights
+            if (terminalState.searchAddon) {
+                terminalState.searchAddon.clearDecorations();
+            }
+            
+            // Return focus to terminal
+            if (terminalState.term) {
+                terminalState.term.focus();
+            }
+            
+            console.log('🔍 Terminal search closed');
+        }
+
+        function searchNext() {
+            const searchInput = document.getElementById('searchInput');
+            const searchTerm = searchInput.value.trim();
+            
+            if (searchTerm && terminalState.searchAddon) {
+                const found = terminalState.searchAddon.findNext(searchTerm, {
+                    caseSensitive: false,
+                    wholeWord: false,
+                    regex: false
+                });
+                
+                if (!found) {
+                    console.log('🔍 Search term not found (next)');
+                }
+            }
+        }
+
+        function searchPrevious() {
+            const searchInput = document.getElementById('searchInput');
+            const searchTerm = searchInput.value.trim();
+            
+            if (searchTerm && terminalState.searchAddon) {
+                const found = terminalState.searchAddon.findPrevious(searchTerm, {
+                    caseSensitive: false,
+                    wholeWord: false,
+                    regex: false
+                });
+                
+                if (!found) {
+                    console.log('🔍 Search term not found (previous)');
+                }
+            }
+        }
+
+        // Search input handler
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('searchInput');
+            
+            searchInput.addEventListener('input', (e) => {
+                const searchTerm = e.target.value.trim();
+                
+                if (searchTerm && terminalState.searchAddon) {
+                    // Clear previous search
+                    terminalState.searchAddon.clearDecorations();
+                    
+                    // Find first occurrence
+                    terminalState.searchAddon.findNext(searchTerm, {
+                        caseSensitive: false,
+                        wholeWord: false,
+                        regex: false
+                    });
+                } else if (terminalState.searchAddon) {
+                    // Clear decorations if search term is empty
+                    terminalState.searchAddon.clearDecorations();
+                }
+            });
+            
+            searchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (e.shiftKey) {
+                        searchPrevious();
+                    } else {
+                        searchNext();
+                    }
+                }
+            });
+        });
 
         function connectTerminal() {
             updateTerminalStatus('connecting');

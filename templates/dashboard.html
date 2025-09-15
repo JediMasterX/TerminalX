@@ -55,19 +55,19 @@
           
           <div class="form-group">
             <label for="password" class="form-label">SSH Password</label>
-            <input name="password" id="password" type="password" placeholder="••••••••" required class="form-input">
+            <input name="password" id="password" type="password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" required class="form-input">
           </div>
           
           <div class="form-group form-group-wide">
             <label for="folder" class="form-label">
               Organization Folder
-              <span class="tooltip">ℹ
+              <span class="tooltip">&#8505;
                 <span class="tooltiptext">
                   Organize hosts into folders using "/" as separator<br>
                   <strong>Examples:</strong><br>
-                  • Production/Web<br>
-                  • Development/Database<br>
-                  • Staging/Cache/Redis
+                  &bull; Production/Web<br>
+                  &bull; Development/Database<br>
+                  &bull; Staging/Cache/Redis
                 </span>
               </span>
             </label>
@@ -198,16 +198,16 @@
       <div class="bulk-actions" id="bulkActions">
         <span id="selectedCount">0 selected</span>
         <button class="bulk-action-btn" onclick="bulkTerminal()">
-          ⚡ Terminal
+          &#9889; Terminal
         </button>
         <button class="bulk-action-btn" onclick="bulkCommand()">
-          🚀 Execute
+          &#128640; Execute
         </button>
         <button class="bulk-action-btn" onclick="bulkMove()">
-          📁 Move
+          &#128193; Move
         </button>
         <button class="bulk-action-btn delete" onclick="bulkDelete()">
-          🗑️ Delete
+          &#128465; Delete
         </button>
       </div>
 
@@ -539,7 +539,7 @@
               <input type="checkbox" class="host-checkbox" ${isSelected ? 'checked' : ''} 
                     onchange="dashboardTreeView.toggleHostSelection(${host.id})">
               <h4 class="host-name">${host.name}</h4>
-              ${isPinned ? '<span class="pin-indicator">📌</span>' : ''}
+              ${isPinned ? '<span class="pin-indicator">&#128204;</span>' : ''}
             </div>
             <div class="card-body">
               <div class="host-info-grid">
@@ -552,20 +552,20 @@
               </div>
             </div>
             <div class="card-actions">
-              <button class="grid-action combined" onclick="openCombinedTerminal(${host.id}, '${host.name}')" title="Combined Terminal & SFTP">⚡</button>
-              <button class="grid-action terminal-overlay" onclick="openTerminalOverlay(${host.id}, '${host.name}', '${host.host}')" title="Terminal Overlay">💻</button>
-              <button class="grid-action terminal-popup" onclick="openTerminalPopup(${host.id}, '${host.name}', '${host.host}')" title="Terminal Popup">🖥️</button>
-              <button class="grid-action" onclick="openSftp(${host.id})" title="SFTP Browser">📁</button>
-              <button class="grid-action" onclick="openWeb('${host.host}')" title="Web Interface">🌐</button>
-              <button class="grid-action" onclick="openTD('${host.host}')" title="TD Interface">📊</button>
-              <button class="grid-action" onclick="openPort9090('${host.host}')" title="Moby Interface">🐳</button>
+              <button class="grid-action" onclick="openPopup(${host.id}, '${host.name}', '${host.host}')" title="Quick Terminal">&#9889;</button>
+              <button class="grid-action terminal-overlay" onclick="openTerminalOverlay(${host.id}, '${host.name}', '${host.host}')" title="Terminal Overlay">&#128187;</button>
+              <button class="grid-action combined" onclick="openCombinedTerminal(${host.id}, '${host.name}')" title="Combined Terminal & SFTP">&#128640;</button>
+              <button class="grid-action" onclick="openSftp(${host.id})" title="SFTP Browser">&#128193;</button>
+              <button class="grid-action" onclick="openWeb('${host.host}')" title="Web Interface">&#127760;</button>
+              <button class="grid-action" onclick="openTD('${host.host}')" title="TD Interface">&#128202;</button>
+              <button class="grid-action" onclick="openPort9090('${host.host}')" title="Moby Interface">&#128051;</button>
               <button class="grid-action" onclick="dashboardTreeView.togglePin(${host.id})" title="${isPinned ? 'Unpin' : 'Pin'}">
-                ${isPinned ? '📌' : '📍'}
+                ${isPinned ? '&#128204;' : '&#128205;'}
               </button>
-              <button class="grid-action" onclick="window.location.href='/edit_host?host_id=${host.id}'" title="Edit Host">✏️</button>
+              <button class="grid-action" onclick="window.location.href='/edit_host?host_id=${host.id}'" title="Edit Host">&#9998;</button>
               <form method="post" action="/delete_host" style="display:inline;">
                 <input type="hidden" name="host_id" value="${host.id}">
-                <button type="submit" class="grid-action delete" onclick="return confirm('Delete ${host.name}?')" title="Delete Host">🗑️</button>
+                <button type="submit" class="grid-action delete" onclick="return confirm('Delete ${host.name}?')" title="Delete Host">&#128465;</button>
               </form>
             </div>
           </div>
@@ -582,26 +582,26 @@
                   onchange="dashboardTreeView.toggleHostSelection(${host.id})"></td>
             <td class="host-name">
               ${host.name}
-              ${isPinned ? '<span class="pin-indicator">📌</span>' : ''}
+              ${isPinned ? '<span class="pin-indicator">&#128204;</span>' : ''}
             </td>
             <td class="host-ip">${host.host}</td>
             <td class="host-user">${host.username}</td>
             <td class="host-folder">${host.folder_path}</td>
             <td class="compact-actions">
-              <button class="compact-action combined" onclick="openCombinedTerminal(${host.id}, '${host.name}')" title="Combined Terminal & SFTP">⚡</button>
-              <button class="compact-action terminal-overlay" onclick="openTerminalOverlay(${host.id}, '${host.name}', '${host.host}')" title="Terminal Overlay">💻</button>
-              <button class="compact-action terminal-popup" onclick="openTerminalPopup(${host.id}, '${host.name}', '${host.host}')" title="Terminal Popup">🖥️</button>
-              <button class="compact-action" onclick="openSftp(${host.id})" title="SFTP Browser">📁</button>
-              <button class="compact-action" onclick="openWeb('${host.host}')" title="Web Interface">🌐</button>
-              <button class="compact-action" onclick="openTD('${host.host}')" title="TD Interface">📊</button>
-              <button class="compact-action" onclick="openPort9090('${host.host}')" title="Moby Interface">🐳</button>
+              <button class="compact-action" onclick="openPopup(${host.id}, '${host.name}', '${host.host}')" title="Quick Terminal">&#9889;</button>
+              <button class="compact-action terminal-overlay" onclick="openTerminalOverlay(${host.id}, '${host.name}', '${host.host}')" title="Terminal Overlay">&#128187;</button>
+              <button class="compact-action combined" onclick="openCombinedTerminal(${host.id}, '${host.name}')" title="Combined Terminal & SFTP">&#128640;</button>
+              <button class="compact-action" onclick="openSftp(${host.id})" title="SFTP Browser">&#128193;</button>
+              <button class="compact-action" onclick="openWeb('${host.host}')" title="Web Interface">&#127760;</button>
+              <button class="compact-action" onclick="openTD('${host.host}')" title="TD Interface">&#128202;</button>
+              <button class="compact-action" onclick="openPort9090('${host.host}')" title="Moby Interface">&#128051;</button>
               <button class="compact-action" onclick="dashboardTreeView.togglePin(${host.id})" title="${isPinned ? 'Unpin' : 'Pin'}">
-                ${isPinned ? '📌' : '📍'}
+                ${isPinned ? '&#128204;' : '&#128205;'}
               </button>
-              <button class="compact-action" onclick="window.location.href='/edit_host?host_id=${host.id}'" title="Edit Host">✏️</button>
+              <button class="compact-action" onclick="window.location.href='/edit_host?host_id=${host.id}'" title="Edit Host">&#9998;</button>
               <form method="post" action="/delete_host" style="display:inline;">
                 <input type="hidden" name="host_id" value="${host.id}">
-                <button type="submit" class="compact-action delete" onclick="return confirm('Delete ${host.name}?')" title="Delete Host">🗑️</button>
+                <button type="submit" class="compact-action delete" onclick="return confirm('Delete ${host.name}?')" title="Delete Host">&#128465;</button>
               </form>
             </td>
           </tr>
@@ -640,29 +640,28 @@
               </div>
             </div>
             <div class="host-actions">
-              <button class="emoji-action combined" onclick="openCombinedTerminal(${host.id}, '${host.name}')" title="Combined Terminal & SFTP">⚡</button>
-              <button class="emoji-action terminal-overlay" onclick="openTerminalOverlay(${host.id}, '${host.name}', '${host.host}')" title="Terminal Overlay">💻</button>
-              <button class="emoji-action terminal-popup" onclick="openTerminalPopup(${host.id}, '${host.name}', '${host.host}')" title="Terminal Popup">🖥️</button>
-              <button class="emoji-action" onclick="openSftp(${host.id})" title="SFTP Browser">📁</button>
-              <button class="emoji-action" onclick="openWeb('${host.host}')" title="Web Interface">🌐</button>
-              <button class="emoji-action" onclick="openTD('${host.host}')" title="TD Interface">📊</button>
-              <button class="emoji-action" onclick="openPort9090('${host.host}')" title="Moby Interface">🐳</button>
+              <button class="emoji-action" onclick="openPopup(${host.id}, '${host.name}', '${host.host}')" title="Quick Terminal">&#9889;</button>
+              <button class="emoji-action terminal-overlay" onclick="openTerminalOverlay(${host.id}, '${host.name}', '${host.host}')" title="Terminal Overlay">&#128187;</button>
+              <button class="emoji-action combined" onclick="openCombinedTerminal(${host.id}, '${host.name}')" title="Combined Terminal & SFTP">&#128640;</button>
+              <button class="emoji-action" onclick="openSftp(${host.id})" title="SFTP Browser">&#128193;</button>
+              <button class="emoji-action" onclick="openWeb('${host.host}')" title="Web Interface">&#127760;</button>
+              <button class="emoji-action" onclick="openTD('${host.host}')" title="TD Interface">&#128202;</button>
+              <button class="emoji-action" onclick="openPort9090('${host.host}')" title="Moby Interface">&#128051;</button>
               <button class="emoji-action ${isPinned ? 'pinned' : ''}" onclick="dashboardTreeView.togglePin(${host.id})" title="${isPinned ? 'Unpin' : 'Pin'}">
-                ${isPinned ? '📌' : '📍'}
+                ${isPinned ? '&#128204;' : '&#128205;'}
               </button>
-              <button class="emoji-action" onclick="window.location.href='/edit_host?host_id=${host.id}'" title="Edit Host">✏️</button>
+              <button class="emoji-action" onclick="window.location.href='/edit_host?host_id=${host.id}'" title="Edit Host">&#9998;</button>
               
               <!-- Delete button -->
               <form method="post" action="/delete_host" style="display:inline;">
                 <input type="hidden" name="host_id" value="${host.id}">
-                <button type="submit" class="emoji-action delete" onclick="return confirm('Delete ${host.name}?')" title="Delete Host">🗑️</button>
+                <button type="submit" class="emoji-action delete" onclick="return confirm('Delete ${host.name}?')" title="Delete Host">&#128465;</button>
               </form>
             </div>
           </div>
         `;
       }
 
-      // FIXED: This was the bug - "willExpanded" should be "willExpand"
       toggleFolder(folderName) {
         const willExpand = !this.expandedFolders.has(folderName);
         if (willExpand) {
@@ -764,9 +763,43 @@
       window.dashboardTreeView = new DashboardTreeView();
     });
 
-    // THREE TERMINAL FUNCTIONS:
+    // OLD SIMPLE POPUP TERMINAL FUNCTION - RESTORED
+    function openPopup(hostId, hostName, hostAddr) {
+      console.log('Opening popup terminal for:', hostId, hostName);
+      
+      const windowName = `terminal_${hostId}_${Date.now()}`;
+      const features = [
+          'width=1000',
+          'height=700',
+          'toolbar=no',
+          'location=no',
+          'status=no',
+          'menubar=no',
+          'scrollbars=yes',
+          'resizable=yes',
+          'left=' + (screen.width / 2 - 500),
+          'top=' + (screen.height / 2 - 350)
+      ].join(',');
+      
+      const url = `/terminal?host_id=${hostId}`;
+      
+      try {
+          const newWindow = window.open(url, windowName, features);
+          
+          if (!newWindow) {
+              alert('Popup blocked! Please allow popups for this site and try again.');
+              return;
+          }
+          
+          newWindow.focus();
+          
+      } catch (error) {
+          console.error('Error opening terminal popup:', error);
+          alert('Error opening terminal popup: ' + error.message);
+      }
+    }
 
-    // 1. Combined Terminal & SFTP (⚡ icon) - Split view with SFTP + Terminal
+    // 1. Combined Terminal & SFTP - Split view with SFTP + Terminal
     function openCombinedTerminal(hostId, hostName) {
       console.log('Opening combined terminal for:', hostId, hostName);
       
@@ -802,7 +835,7 @@
       }
     }
 
-    // 2. Terminal Overlay (💻 icon) - Full screen overlay (existing functionality)
+    // 2. Terminal Overlay - Full screen overlay (existing functionality)
     function openTerminalOverlay(hostId, hostName, hostAddr) {
       console.log('Opening terminal overlay for:', hostId, hostName);
       
@@ -817,43 +850,7 @@
         initializeTerminalOverlay(hostId, hostName, hostAddr);
       } else {
         console.error('Terminal overlay not found - using popup fallback');
-        openTerminalPopup(hostId, hostName, hostAddr);
-      }
-    }
-
-    // 3. Terminal Popup (🖥️ icon) - Simple popup window (for bulk actions)
-    function openTerminalPopup(hostId, hostName, hostAddr) {
-      console.log('Opening terminal popup for:', hostId, hostName);
-      
-      const windowName = `terminal_popup_${hostId}_${Date.now()}`;
-      const features = [
-          'width=1000',
-          'height=700',
-          'toolbar=no',
-          'location=no',
-          'status=no',
-          'menubar=no',
-          'scrollbars=yes',
-          'resizable=yes',
-          'left=' + (screen.width / 2 - 500),
-          'top=' + (screen.height / 2 - 350)
-      ].join(',');
-      
-      const url = `/terminal?host_id=${hostId}`;
-      
-      try {
-          const newWindow = window.open(url, windowName, features);
-          
-          if (!newWindow) {
-              alert('Popup blocked! Please allow popups for this site and try again.');
-              return;
-          }
-          
-          newWindow.focus();
-          
-      } catch (error) {
-          console.error('Error opening terminal popup:', error);
-          alert('Error opening terminal popup: ' + error.message);
+        openPopup(hostId, hostName, hostAddr);
       }
     }
 
@@ -869,14 +866,14 @@
       }
     }
 
-    // BULK OPERATIONS - Only uses Terminal Popup (🖥️)
+    // BULK OPERATIONS
     function bulkTerminal() {
       const selectedHosts = Array.from(dashboardTreeView.selectedHosts);
       selectedHosts.forEach(hostId => {
         const host = dashboardTreeView.hosts.find(h => h.id === hostId);
         if (host) {
-          // Use Terminal Popup for bulk operations
-          openTerminalPopup(host.id, host.name, host.host);
+          // Use simple popup for bulk operations
+          openPopup(host.id, host.name, host.host);
         }
       });
       dashboardTreeView.selectedHosts.clear();
@@ -928,9 +925,9 @@
       }
     }
 
-    // Add CSS for all three terminal button types
+    // Add CSS for the terminal button types
     const terminalButtonStyles = `
-      /* Combined Terminal & SFTP Button (⚡) */
+      /* Combined Terminal & SFTP Button */
       .grid-action.combined,
       .compact-action.combined,
       .emoji-action.combined {
@@ -950,7 +947,7 @@
         box-shadow: 0 4px 12px rgba(168, 85, 247, 0.4);
       }
 
-      /* Terminal Overlay Button (💻) */
+      /* Terminal Overlay Button */
       .grid-action.terminal-overlay,
       .compact-action.terminal-overlay,
       .emoji-action.terminal-overlay {
@@ -967,25 +964,6 @@
         border-color: #58a6ff;
         transform: scale(1.1);
         box-shadow: 0 4px 12px rgba(88, 166, 255, 0.3);
-      }
-
-      /* Terminal Popup Button (🖥️) */
-      .grid-action.terminal-popup,
-      .compact-action.terminal-popup,
-      .emoji-action.terminal-popup {
-        background: linear-gradient(135deg, #059669 0%, #047857 100%);
-        color: white;
-        border-color: #059669;
-        position: relative;
-      }
-
-      .grid-action.terminal-popup:hover,
-      .compact-action.terminal-popup:hover,
-      .emoji-action.terminal-popup:hover {
-        background: linear-gradient(135deg, #047857 0%, #065f46 100%);
-        border-color: #10b981;
-        transform: scale(1.1);
-        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
       }
 
       /* Add indicator dots for each type */
@@ -1009,18 +987,6 @@
         width: 6px;
         height: 6px;
         background: #58a6ff;
-        border-radius: 50%;
-        border: 1px solid white;
-      }
-
-      .terminal-popup::after {
-        content: '';
-        position: absolute;
-        top: 2px;
-        right: 2px;
-        width: 6px;
-        height: 6px;
-        background: #10b981;
         border-radius: 50%;
         border: 1px solid white;
       }

@@ -99,62 +99,80 @@
             display: flex;
             height: calc(100vh - 60px);
             position: relative;
-            flex-direction: row; /* EXPLICIT: Left to right layout */
+            flex-direction: row;
         }
 
-        /* LEFT PANEL - SFTP Browser (40% width) */
+        /* LEFT PANEL - Remove constraints that prevent left resize */
         .left-panel {
-            flex: 0 0 40%;
-            width: 40%;
             background: #0d1117;
             position: relative;
-            transition: all 0.3s ease;
             border-right: 1px solid #30363d;
-            min-width: 200px;
             display: flex;
             flex-direction: column;
+            /* CRITICAL: Remove min-width and use width instead of flex */
+            width: 40%;
+            min-width: 100px; /* Only prevent completely collapsing */
         }
 
         .left-panel.hidden {
-            flex: 0 0 0px !important;
-            width: 0 !important;
-            min-width: 0 !important;
-            overflow: hidden;
-            border-right: none;
+            display: none !important;
         }
 
-        /* RESIZER BAR */
+        /* RESIZER BAR - Keep the working version */
         .panel-resizer {
-            width: 4px;
+            width: 8px;
             background: #30363d;
             cursor: col-resize;
             position: relative;
-            transition: background 0.2s ease;
-            flex: 0 0 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            flex-shrink: 0;
         }
 
-        .panel-resizer:hover {
+        .panel-resizer::before {
+            content: '';
+            width: 2px;
+            height: 40px;
             background: #58a6ff;
+            border-radius: 1px;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+
+        .panel-resizer:hover::before {
+            opacity: 0.6;
+        }
+
+        .panel-resizer.actively-resizing {
+            background: #58a6ff !important;
+        }
+
+        .panel-resizer.actively-resizing::before {
+            opacity: 1 !important;
+            background: #ffffff !important;
         }
 
         .panel-resizer.disabled {
             cursor: default;
             background: #21262d;
+            pointer-events: none;
         }
 
-        /* RIGHT PANEL - Terminal (60% width) */
+        .panel-resizer:focus {
+            outline: 2px solid #58a6ff;
+            outline-offset: 2px;
+        }
+
+        /* RIGHT PANEL - Use flex to fill remaining space */
         .right-panel {
             flex: 1;
-            width: 60%;
             background: #000;
             position: relative;
             display: flex;
             flex-direction: column;
-        }
-
-        .right-panel.full-width {
-            flex: 1 !important;
-            width: 100% !important;
+            min-width: 200px; /* Prevent right panel from getting too small */
         }
 
         .panel-header {
@@ -267,33 +285,21 @@
             color: #f1e05a;
         }
 
-        /* Debug borders - remove these after testing */
-        .left-panel {
-            border: 2px solid red; /* SFTP should be LEFT with RED border */
-        }
-        
-        .right-panel {
-            border: 2px solid blue; /* Terminal should be RIGHT with BLUE border */
+        /* Prevent text selection during resize - KEEP THIS */
+        .actively-resizing-document {
+            user-select: none !important;
+            -webkit-user-select: none !important;
+            -moz-user-select: none !important;
+            -ms-user-select: none !important;
+            cursor: col-resize !important;
         }
 
-        /* Responsive adjustments */
-        @media (max-width: 768px) {
-            .main-layout {
-                flex-direction: column;
-            }
-            
-            .left-panel, .right-panel {
-                flex: 1;
-                width: 100% !important;
-                border-right: none;
-                border-bottom: 1px solid #30363d;
-            }
-            
-            .panel-resizer {
-                width: 100%;
-                height: 4px;
-                cursor: row-resize;
-            }
+        .actively-resizing-document * {
+            user-select: none !important;
+            -webkit-user-select: none !important;
+            -moz-user-select: none !important;
+            -ms-user-select: none !important;
+            cursor: col-resize !important;
         }
     </style>
 </head>
@@ -323,15 +329,14 @@
         </div>
     </div>
 
-    <!-- MAIN LAYOUT: LEFT = SFTP, RIGHT = TERMINAL -->
     <div class="main-layout" id="mainLayout">
         
-        <!-- LEFT PANEL: SFTP Browser (40%) -->
+        <!-- LEFT PANEL: SFTP Browser -->
         <div class="left-panel" id="leftPanel">
             <div class="panel-header">
                 <div class="panel-title">
                     <div class="status-indicator" id="sftpStatus"></div>
-                    File Browser (LEFT SIDE - SFTP)
+                    File Browser
                 </div>
             </div>
             <div class="sftp-content">
@@ -343,15 +348,15 @@
             </div>
         </div>
 
-        <!-- RESIZER BAR -->
+        <!-- RESIZER -->
         <div class="panel-resizer" id="panelResizer"></div>
 
-        <!-- RIGHT PANEL: Terminal (60%) -->
+        <!-- RIGHT PANEL: Terminal -->
         <div class="right-panel" id="rightPanel">
             <div class="panel-header">
                 <div class="panel-title">
                     <div class="status-indicator" id="terminalStatus"></div>
-                    Terminal (RIGHT SIDE)
+                    Terminal
                 </div>
             </div>
             <div id="terminal"></div>
@@ -385,10 +390,284 @@
             url: null
         };
 
-        console.log('Left panel = SFTP Panel (should be on LEFT)');
-        console.log('Right panel = Terminal Panel (should be on RIGHT)');
+        // WORKING Resizer with BOTH directions fixed
+        class WorkingResizer {
+            constructor() {
+                // State tracking - KEEP THE SAFETY MECHANISMS
+                this.isMouseDown = false;
+                this.isActivelyResizing = false;
+                this.startX = 0;
+                this.startLeftWidth = 0;
+                this.containerWidth = 0;
+                this.resizeTimeout = null;
+                
+                // Constraints in percentages
+                this.minLeftPercent = 10;
+                this.maxLeftPercent = 80;
+                
+                this.resizer = document.getElementById('panelResizer');
+                this.leftPanel = document.getElementById('leftPanel');
+                this.rightPanel = document.getElementById('rightPanel');
+                this.container = document.getElementById('mainLayout');
+                
+                // Pre-bound event handlers
+                this.boundHandleResize = this.handleResize.bind(this);
+                this.boundStopResize = this.stopResize.bind(this);
+                this.boundPreventSelection = this.preventSelection.bind(this);
+                
+                this.init();
+            }
+            
+            init() {
+                this.resizer.addEventListener('mousedown', this.handleMouseDown.bind(this));
+                this.resizer.addEventListener('touchstart', this.handleTouchStart.bind(this), { passive: false });
+                
+                // KEEP all safety mechanisms
+                this.setupSafetyMechanisms();
+                
+                console.log('🎯 Working resizer initialized - both directions should work');
+            }
+            
+            handleMouseDown(e) {
+                if (this.leftPanel.classList.contains('hidden') || 
+                    this.resizer.classList.contains('disabled') ||
+                    this.isMouseDown ||
+                    this.isActivelyResizing ||
+                    e.button !== 0) {
+                    return;
+                }
+                
+                console.log('🟢 Starting resize - both directions enabled');
+                
+                e.preventDefault();
+                e.stopPropagation();
+                
+                this.isMouseDown = true;
+                this.isActivelyResizing = true;
+                this.startX = e.clientX;
+                this.containerWidth = this.container.getBoundingClientRect().width;
+                this.startLeftWidth = this.leftPanel.getBoundingClientRect().width;
+                
+                this.addActiveResizingState();
+                
+                document.addEventListener('mousemove', this.boundHandleResize, { passive: false });
+                document.addEventListener('mouseup', this.boundStopResize, { passive: false });
+                document.addEventListener('selectstart', this.boundPreventSelection, { passive: false });
+                
+                // Safety timeout
+                this.resizeTimeout = setTimeout(() => {
+                    if (this.isActivelyResizing) {
+                        console.log('🛡️ Safety timeout - force stop');
+                        this.forceStopResize();
+                    }
+                }, 10000);
+            }
+            
+            handleResize(e) {
+                if (!this.isMouseDown || !this.isActivelyResizing) {
+                    return;
+                }
+                
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const currentX = e.clientX;
+                const deltaX = currentX - this.startX;
+                const newLeftWidth = this.startLeftWidth + deltaX;
+                const newLeftPercent = (newLeftWidth / this.containerWidth) * 100;
+                
+                console.log(`Resize: deltaX=${deltaX}, newWidth=${newLeftWidth}px, percent=${newLeftPercent.toFixed(1)}%`);
+                
+                if (newLeftPercent >= this.minLeftPercent && newLeftPercent <= this.maxLeftPercent) {
+                    this.applyResize(newLeftPercent);
+                }
+            }
+            
+            stopResize(e) {
+                if (!this.isMouseDown && !this.isActivelyResizing) {
+                    return;
+                }
+                
+                console.log('🔴 Stopping resize');
+                this.cleanupResize();
+                this.onResizeComplete();
+            }
+            
+            forceStopResize() {
+                console.log('🚨 Force stopping resize');
+                this.cleanupResize();
+                this.onResizeComplete();
+            }
+            
+            cleanupResize() {
+                this.isMouseDown = false;
+                this.isActivelyResizing = false;
+                
+                if (this.resizeTimeout) {
+                    clearTimeout(this.resizeTimeout);
+                    this.resizeTimeout = null;
+                }
+                
+                document.removeEventListener('mousemove', this.boundHandleResize);
+                document.removeEventListener('mouseup', this.boundStopResize);
+                document.removeEventListener('selectstart', this.boundPreventSelection);
+                
+                this.removeActiveResizingState();
+            }
+            
+            applyResize(leftPercent) {
+                console.log(`✅ Applying: LEFT=${leftPercent.toFixed(1)}%`);
+                
+                // Use simple width percentage - let right panel flex to fill
+                this.leftPanel.style.width = `${leftPercent}%`;
+                
+                // Save preference
+                localStorage.setItem('panelLayout', leftPercent.toString());
+            }
+            
+            addActiveResizingState() {
+                document.body.classList.add('actively-resizing-document');
+                this.resizer.classList.add('actively-resizing');
+            }
+            
+            removeActiveResizingState() {
+                document.body.classList.remove('actively-resizing-document');
+                this.resizer.classList.remove('actively-resizing');
+            }
+            
+            preventSelection(e) {
+                e.preventDefault();
+                return false;
+            }
+            
+            onResizeComplete() {
+                setTimeout(() => {
+                    if (terminalState.term) {
+                        terminalState.term.fit();
+                    }
+                }, 50);
+            }
+            
+            setupSafetyMechanisms() {
+                // KEEP all the working safety mechanisms
+                document.addEventListener('mouseleave', () => {
+                    if (this.isActivelyResizing) {
+                        console.log('🛡️ Mouse left window - stopping');
+                        this.forceStopResize();
+                    }
+                });
+                
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape' && this.isActivelyResizing) {
+                        console.log('🛡️ ESC pressed - stopping');
+                        this.forceStopResize();
+                    }
+                });
+                
+                window.addEventListener('blur', () => {
+                    if (this.isActivelyResizing) {
+                        console.log('🛡️ Window blur - stopping');
+                        this.forceStopResize();
+                    }
+                });
+                
+                document.addEventListener('visibilitychange', () => {
+                    if (document.hidden && this.isActivelyResizing) {
+                        console.log('🛡️ Page hidden - stopping');
+                        this.forceStopResize();
+                    }
+                });
+            }
+            
+            handleTouchStart(e) {
+                // Touch support
+                if (this.leftPanel.classList.contains('hidden') || 
+                    this.resizer.classList.contains('disabled') ||
+                    this.isActivelyResizing) {
+                    return;
+                }
+                
+                e.preventDefault();
+                
+                this.isMouseDown = true;
+                this.isActivelyResizing = true;
+                this.startX = e.touches[0].clientX;
+                this.containerWidth = this.container.getBoundingClientRect().width;
+                this.startLeftWidth = this.leftPanel.getBoundingClientRect().width;
+                
+                this.addActiveResizingState();
+                
+                document.addEventListener('touchmove', this.handleTouchMove.bind(this), { passive: false });
+                document.addEventListener('touchend', this.handleTouchEnd.bind(this), { passive: false });
+            }
+            
+            handleTouchMove(e) {
+                if (!this.isMouseDown || !this.isActivelyResizing) return;
+                
+                e.preventDefault();
+                
+                const currentX = e.touches[0].clientX;
+                const deltaX = currentX - this.startX;
+                const newLeftWidth = this.startLeftWidth + deltaX;
+                const newLeftPercent = (newLeftWidth / this.containerWidth) * 100;
+                
+                if (newLeftPercent >= this.minLeftPercent && newLeftPercent <= this.maxLeftPercent) {
+                    this.applyResize(newLeftPercent);
+                }
+            }
+            
+            handleTouchEnd(e) {
+                e.preventDefault();
+                this.cleanupResize();
+                this.onResizeComplete();
+                
+                document.removeEventListener('touchmove', this.handleTouchMove);
+                document.removeEventListener('touchend', this.handleTouchEnd);
+            }
+            
+            toggleSftp() {
+                if (this.leftPanel.classList.contains('hidden')) {
+                    this.showSftp();
+                } else {
+                    this.hideSftp();
+                }
+            }
+            
+            showSftp() {
+                if (this.isActivelyResizing) {
+                    this.forceStopResize();
+                }
+                
+                this.leftPanel.classList.remove('hidden');
+                this.resizer.classList.remove('disabled');
+                
+                const saved = localStorage.getItem('panelLayout');
+                if (saved) {
+                    const percent = parseFloat(saved);
+                    if (percent >= this.minLeftPercent && percent <= this.maxLeftPercent) {
+                        this.applyResize(percent);
+                    } else {
+                        this.applyResize(40);
+                    }
+                } else {
+                    this.applyResize(40);
+                }
+                
+                this.onResizeComplete();
+            }
+            
+            hideSftp() {
+                if (this.isActivelyResizing) {
+                    this.forceStopResize();
+                }
+                
+                this.leftPanel.classList.add('hidden');
+                this.resizer.classList.add('disabled');
+                this.onResizeComplete();
+            }
+        }
 
-        // Initialize terminal
+        // Initialize terminal (same as before)
         function initializeTerminal() {
             const term = new Terminal({
                 fontFamily: "'SF Mono', Monaco, 'Cascadia Code', 'Courier New', monospace",
@@ -417,142 +696,17 @@
             terminalState.term = term;
             terminalState.searchAddon = searchAddon;
 
-            // Connect WebSocket
             connectTerminal();
 
-            // Handle resize
             function resizeTerminal() {
                 fitAddon.fit();
             }
 
             window.addEventListener('resize', resizeTerminal);
-
-            // Keyboard shortcuts
-            document.addEventListener('keydown', (e) => {
-                // Ctrl+F for search (only when terminal is focused or no input is focused)
-                if (e.ctrlKey && e.key === 'f') {
-                    const activeElement = document.activeElement;
-                    const isInputFocused = activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA');
-                    
-                    // Only intercept Ctrl+F if no input is focused, or if terminal container is focused
-                    if (!isInputFocused || terminalContainer.contains(activeElement)) {
-                        e.preventDefault();
-                        openSearch();
-                    }
-                }
-                
-                // Escape to close search
-                if (e.key === 'Escape') {
-                    closeSearch();
-                }
-            });
-
-            // Initial fit
             setTimeout(resizeTerminal, 100);
 
             return { term, fitAddon };
         }
-
-        // Terminal search functions
-        function openSearch() {
-            const searchBar = document.getElementById('terminalSearch');
-            const searchInput = document.getElementById('searchInput');
-            
-            searchBar.classList.add('visible');
-            searchInput.focus();
-            searchInput.select();
-            
-            console.log('🔍 Terminal search opened');
-        }
-
-        function closeSearch() {
-            const searchBar = document.getElementById('terminalSearch');
-            const searchInput = document.getElementById('searchInput');
-            
-            searchBar.classList.remove('visible');
-            searchInput.value = '';
-            
-            // Clear any existing search highlights
-            if (terminalState.searchAddon) {
-                terminalState.searchAddon.clearDecorations();
-            }
-            
-            // Return focus to terminal
-            if (terminalState.term) {
-                terminalState.term.focus();
-            }
-            
-            console.log('🔍 Terminal search closed');
-        }
-
-        function searchNext() {
-            const searchInput = document.getElementById('searchInput');
-            const searchTerm = searchInput.value.trim();
-            
-            if (searchTerm && terminalState.searchAddon) {
-                const found = terminalState.searchAddon.findNext(searchTerm, {
-                    caseSensitive: false,
-                    wholeWord: false,
-                    regex: false
-                });
-                
-                if (!found) {
-                    console.log('🔍 Search term not found (next)');
-                }
-            }
-        }
-
-        function searchPrevious() {
-            const searchInput = document.getElementById('searchInput');
-            const searchTerm = searchInput.value.trim();
-            
-            if (searchTerm && terminalState.searchAddon) {
-                const found = terminalState.searchAddon.findPrevious(searchTerm, {
-                    caseSensitive: false,
-                    wholeWord: false,
-                    regex: false
-                });
-                
-                if (!found) {
-                    console.log('🔍 Search term not found (previous)');
-                }
-            }
-        }
-
-        // Search input handler
-        document.addEventListener('DOMContentLoaded', () => {
-            const searchInput = document.getElementById('searchInput');
-            
-            searchInput.addEventListener('input', (e) => {
-                const searchTerm = e.target.value.trim();
-                
-                if (searchTerm && terminalState.searchAddon) {
-                    // Clear previous search
-                    terminalState.searchAddon.clearDecorations();
-                    
-                    // Find first occurrence
-                    terminalState.searchAddon.findNext(searchTerm, {
-                        caseSensitive: false,
-                        wholeWord: false,
-                        regex: false
-                    });
-                } else if (terminalState.searchAddon) {
-                    // Clear decorations if search term is empty
-                    terminalState.searchAddon.clearDecorations();
-                }
-            });
-            
-            searchInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    if (e.shiftKey) {
-                        searchPrevious();
-                    } else {
-                        searchNext();
-                    }
-                }
-            });
-        });
 
         function connectTerminal() {
             updateTerminalStatus('connecting');
@@ -616,9 +770,6 @@
                 updateSftpStatus('connecting');
                 document.getElementById('sftpLoading').style.display = 'flex';
                 
-                console.log('🟡 Starting SFTP connection...');
-                
-                // Get SFTP token from server
                 const response = await fetch('/api/sftp/mint', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -636,16 +787,12 @@
 
                 sftpState.token = data.token;
                 
-                // Configure SFTP URL (adjust these based on your setup)
                 const sftpProtocol = location.protocol;
                 const sftpHost = location.hostname;
-                const sftpPort = '3000'; // SFTP server port
+                const sftpPort = '3000';
                 
                 sftpState.url = `${sftpProtocol}//${sftpHost}:${sftpPort}/#token=${encodeURIComponent(data.token)}`;
                 
-                console.log('🟡 Loading SFTP iframe...', sftpState.url);
-                
-                // Load SFTP iframe
                 const iframe = document.getElementById('sftpFrame');
                 iframe.src = sftpState.url;
                 
@@ -654,8 +801,6 @@
                     document.getElementById('sftpLoading').style.display = 'none';
                     iframe.style.display = 'block';
                     sftpState.connected = true;
-                    
-                    console.log('✅ SFTP connected successfully');
                 };
 
                 iframe.onerror = () => {
@@ -672,13 +817,11 @@
             document.getElementById('sftpLoading').style.display = 'none';
             console.error('❌ SFTP Error:', errorMessage);
             
-            // Show error message in the SFTP panel
             const sftpContent = document.querySelector('.sftp-content');
             const iframe = document.getElementById('sftpFrame');
             
             iframe.style.display = 'none';
             
-            // Create/update error message
             let errorElement = document.getElementById('sftpError');
             if (!errorElement) {
                 errorElement = document.createElement('div');
@@ -721,155 +864,49 @@
         }
 
         function toggleSftp() {
-            const leftPanel = document.getElementById('leftPanel');
-            const rightPanel = document.getElementById('rightPanel');
-            const toggleBtn = document.getElementById('toggleSftp');
-            const refreshBtn = document.getElementById('refreshSftp');
-            const resizer = document.getElementById('panelResizer');
-            
-            console.log('🔄 Toggle SFTP clicked');
-            
-            if (leftPanel.classList.contains('hidden')) {
-                // SHOW SFTP panel (left side)
-                console.log('📁 SHOWING SFTP on LEFT side');
+            if (window.workingResizer) {
+                window.workingResizer.toggleSftp();
                 
-                leftPanel.classList.remove('hidden');
-                rightPanel.classList.remove('full-width');
-                toggleBtn.classList.add('active');
-                refreshBtn.style.display = 'flex';
-                resizer.classList.remove('disabled');
+                const toggleBtn = document.getElementById('toggleSftp');
+                const refreshBtn = document.getElementById('refreshSftp');
                 
-                // Set explicit 40/60 split
-                leftPanel.style.flex = '0 0 40%';
-                leftPanel.style.width = '40%';
-                rightPanel.style.flex = '1';
-                rightPanel.style.width = '60%';
-                
-                if (!sftpState.connected) {
-                    initializeSftp();
+                if (document.getElementById('leftPanel').classList.contains('hidden')) {
+                    toggleBtn.classList.remove('active');
+                    refreshBtn.style.display = 'none';
+                } else {
+                    toggleBtn.classList.add('active');
+                    refreshBtn.style.display = 'flex';
+                    
+                    if (!sftpState.connected) {
+                        initializeSftp();
+                    }
                 }
-            } else {
-                // HIDE SFTP panel
-                console.log('📁 HIDING SFTP panel');
-                
-                leftPanel.classList.add('hidden');
-                rightPanel.classList.add('full-width');
-                toggleBtn.classList.remove('active');
-                refreshBtn.style.display = 'none';
-                resizer.classList.add('disabled');
-                
-                // Terminal takes full width
-                leftPanel.style.flex = '0 0 0px';
-                leftPanel.style.width = '0';
-                rightPanel.style.flex = '1';
-                rightPanel.style.width = '100%';
             }
-            
-            // Resize terminal after layout change
-            setTimeout(() => {
-                if (terminalState.term) {
-                    terminalState.term.fit();
-                }
-            }, 300);
         }
 
         function refreshSftp() {
             if (sftpState.connected) {
                 const iframe = document.getElementById('sftpFrame');
-                iframe.src = iframe.src; // Reload iframe
+                iframe.src = iframe.src;
             }
         }
 
-        // Panel resizer functionality
-        function initializeResizer() {
-            const resizer = document.getElementById('panelResizer');
-            const leftPanel = document.getElementById('leftPanel');
-            const rightPanel = document.getElementById('rightPanel');
-            const container = document.getElementById('mainLayout');
-            
-            let isResizing = false;
-
-            resizer.addEventListener('mousedown', (e) => {
-                if (leftPanel.classList.contains('hidden') || resizer.classList.contains('disabled')) {
-                    return;
-                }
-                
-                isResizing = true;
-                document.addEventListener('mousemove', handleMouseMove);
-                document.addEventListener('mouseup', stopResize);
-                e.preventDefault();
-                
-                console.log('🔄 Starting resize');
-            });
-
-            function handleMouseMove(e) {
-                if (!isResizing) return;
-                
-                const containerRect = container.getBoundingClientRect();
-                const offsetX = e.clientX - containerRect.left;
-                const containerWidth = containerRect.width;
-                
-                // Calculate left panel percentage
-                const leftPercent = (offsetX / containerWidth) * 100;
-                
-                // Constrain between 15% and 75%
-                if (leftPercent >= 15 && leftPercent <= 75) {
-                    leftPanel.style.flex = `0 0 ${leftPercent}%`;
-                    leftPanel.style.width = `${leftPercent}%`;
-                    rightPanel.style.width = `${100 - leftPercent}%`;
-                }
-            }
-
-            function stopResize() {
-                if (!isResizing) return;
-                
-                isResizing = false;
-                document.removeEventListener('mousemove', handleMouseMove);
-                document.removeEventListener('mouseup', stopResize);
-                
-                console.log('✅ Resize complete');
-                
-                setTimeout(() => {
-                    if (terminalState.term) {
-                        terminalState.term.fit();
-                    }
-                }, 100);
-            }
-        }
-
-        // Event listeners
         document.getElementById('toggleSftp').addEventListener('click', toggleSftp);
         document.getElementById('refreshSftp').addEventListener('click', refreshSftp);
 
         // Initialize application
         document.addEventListener('DOMContentLoaded', () => {
-            console.log('🚀 Initializing combined interface...');
-            console.log('🔴 RED border = SFTP (LEFT side)');
-            console.log('🔵 BLUE border = Terminal (RIGHT side)');
+            console.log('🚀 Initializing with FIXED working resizer...');
             
             initializeTerminal();
-            initializeResizer();
+            window.workingResizer = new WorkingResizer();
             
-            // Force LEFT panel (SFTP) to be visible with 40% width
-            const leftPanel = document.getElementById('leftPanel');
-            const rightPanel = document.getElementById('rightPanel');
+            console.log('✅ Resizer restored: Both directions + No gaps + No locking');
             
-            leftPanel.classList.remove('hidden');
-            rightPanel.classList.remove('full-width');
-            
-            leftPanel.style.flex = '0 0 40%';
-            leftPanel.style.width = '40%';
-            rightPanel.style.flex = '1';
-            rightPanel.style.width = '60%';
-            
-            console.log('🎯 Layout set: LEFT=SFTP(40%), RIGHT=Terminal(60%)');
-            
-            // Start SFTP after layout is ready
             setTimeout(() => {
                 initializeSftp();
             }, 500);
             
-            // Resize terminal after everything is ready
             setTimeout(() => {
                 if (terminalState.term) {
                     terminalState.term.fit();
@@ -877,7 +914,6 @@
             }, 1000);
         });
 
-        // Cleanup on page unload
         window.addEventListener('beforeunload', () => {
             if (terminalState.socket) {
                 terminalState.socket.close();

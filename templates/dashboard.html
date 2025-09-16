@@ -198,10 +198,10 @@
       <div class="bulk-actions" id="bulkActions">
         <span id="selectedCount">0 selected</span>
         <button class="bulk-action-btn" onclick="bulkTerminal()">
-          &#9889; Terminal
+          <svg class="icon icon-terminal" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><polyline points="7,9 10,12 7,15"/><line x1="12" y1="15" x2="17" y2="15"/></svg> Terminal
         </button>
         <button class="bulk-action-btn" onclick="bulkCommand()">
-          &#128640; Execute
+          <svg class="icon icon-combined" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><line x1="10" y1="5" x2="10" y2="19"/><polyline points="12,10 15,12 12,14"/><line x1="12" y1="16" x2="18" y2="16"/></svg> Execute
         </button>
         <button class="bulk-action-btn" onclick="bulkMove()">
           &#128193; Move
@@ -552,9 +552,9 @@
               </div>
             </div>
             <div class="card-actions">
-              <button class="grid-action" onclick="openPopup(${host.id}, '${host.name}', '${host.host}')" title="Quick Terminal">&#9889;</button>
-              <button class="grid-action terminal-overlay" onclick="openTerminalOverlay(${host.id}, '${host.name}', '${host.host}')" title="Terminal Overlay">&#128187;</button>
-              <button class="grid-action combined" onclick="openCombinedTerminal(${host.id}, '${host.name}')" title="Combined Terminal & SFTP">&#128640;</button>
+              <button class="grid-action" onclick="openPopup(${host.id}, '${host.name}', '${host.host}')" title="Quick Terminal"><svg class="icon icon-terminal" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><polyline points="7,9 10,12 7,15"/><line x1="12" y1="15" x2="17" y2="15"/></svg></button>
+              <button class="grid-action terminal-overlay" onclick="openTerminalOverlay(${host.id}, '${host.name}', '${host.host}')" title="Terminal Overlay"><svg class="icon icon-overlay" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><line x1="8" y1="20" x2="16" y2="20"/><line x1="12" y1="16" x2="12" y2="20"/></svg></button>
+              <button class="grid-action combined" onclick="openCombinedTerminal(${host.id}, '${host.name}')" title="Combined Terminal & SFTP"><svg class="icon icon-combined" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><line x1="10" y1="5" x2="10" y2="19"/><polyline points="12,10 15,12 12,14"/><line x1="12" y1="16" x2="18" y2="16"/></svg></button>
               <button class="grid-action" onclick="openSftp(${host.id})" title="SFTP Browser">&#128193;</button>
               <button class="grid-action" onclick="openWeb('${host.host}')" title="Web Interface">&#127760;</button>
               <button class="grid-action" onclick="openTD('${host.host}')" title="TD Interface">&#128202;</button>
@@ -588,9 +588,9 @@
             <td class="host-user">${host.username}</td>
             <td class="host-folder">${host.folder_path}</td>
             <td class="compact-actions">
-              <button class="compact-action" onclick="openPopup(${host.id}, '${host.name}', '${host.host}')" title="Quick Terminal">&#9889;</button>
-              <button class="compact-action terminal-overlay" onclick="openTerminalOverlay(${host.id}, '${host.name}', '${host.host}')" title="Terminal Overlay">&#128187;</button>
-              <button class="compact-action combined" onclick="openCombinedTerminal(${host.id}, '${host.name}')" title="Combined Terminal & SFTP">&#128640;</button>
+              <button class="compact-action" onclick="openPopup(${host.id}, '${host.name}', '${host.host}')" title="Quick Terminal"><svg class="icon icon-terminal" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><polyline points="7,9 10,12 7,15"/><line x1="12" y1="15" x2="17" y2="15"/></svg></button>
+              <button class="compact-action terminal-overlay" onclick="openTerminalOverlay(${host.id}, '${host.name}', '${host.host}')" title="Terminal Overlay"><svg class="icon icon-overlay" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><line x1="8" y1="20" x2="16" y2="20"/><line x1="12" y1="16" x2="12" y2="20"/></svg></button>
+              <button class="compact-action combined" onclick="openCombinedTerminal(${host.id}, '${host.name}')" title="Combined Terminal & SFTP"><svg class="icon icon-combined" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><line x1="10" y1="5" x2="10" y2="19"/><polyline points="12,10 15,12 12,14"/><line x1="12" y1="16" x2="18" y2="16"/></svg></button>
               <button class="compact-action" onclick="openSftp(${host.id})" title="SFTP Browser">&#128193;</button>
               <button class="compact-action" onclick="openWeb('${host.host}')" title="Web Interface">&#127760;</button>
               <button class="compact-action" onclick="openTD('${host.host}')" title="TD Interface">&#128202;</button>
@@ -640,9 +640,9 @@
               </div>
             </div>
             <div class="host-actions">
-              <button class="emoji-action" onclick="openPopup(${host.id}, '${host.name}', '${host.host}')" title="Quick Terminal">&#9889;</button>
-              <button class="emoji-action terminal-overlay" onclick="openTerminalOverlay(${host.id}, '${host.name}', '${host.host}')" title="Terminal Overlay">&#128187;</button>
-              <button class="emoji-action combined" onclick="openCombinedTerminal(${host.id}, '${host.name}')" title="Combined Terminal & SFTP">&#128640;</button>
+              <button class="emoji-action" onclick="openPopup(${host.id}, '${host.name}', '${host.host}')" title="Quick Terminal"><svg class="icon icon-terminal" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><polyline points="7,9 10,12 7,15"/><line x1="12" y1="15" x2="17" y2="15"/></svg></button>
+              <button class="emoji-action terminal-overlay" onclick="openTerminalOverlay(${host.id}, '${host.name}', '${host.host}')" title="Terminal Overlay"><svg class="icon icon-overlay" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><line x1="8" y1="20" x2="16" y2="20"/><line x1="12" y1="16" x2="12" y2="20"/></svg></button>
+              <button class="emoji-action combined" onclick="openCombinedTerminal(${host.id}, '${host.name}')" title="Combined Terminal & SFTP"><svg class="icon icon-combined" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><line x1="10" y1="5" x2="10" y2="19"/><polyline points="12,10 15,12 12,14"/><line x1="12" y1="16" x2="18" y2="16"/></svg></button>
               <button class="emoji-action" onclick="openSftp(${host.id})" title="SFTP Browser">&#128193;</button>
               <button class="emoji-action" onclick="openWeb('${host.host}')" title="Web Interface">&#127760;</button>
               <button class="emoji-action" onclick="openTD('${host.host}')" title="TD Interface">&#128202;</button>

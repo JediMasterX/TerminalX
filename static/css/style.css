@@ -3380,3 +3380,20 @@ textarea:focus {
 .badge.status-error { background: rgba(248, 81, 73, 0.15); color: var(--accent-orange); font-size: 0.78rem; }
 .badge.status-stopped { background: rgba(139, 148, 158, 0.15); color: var(--text-secondary); font-size: 0.78rem; }
 
+/* Inline SVG icon system for action buttons (asset-free) */
+.icon {
+  width: 16px;
+  height: 16px;
+  display: block;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.grid-action .icon,
+.compact-action .icon,
+.emoji-action .icon {
+  width: 16px;
+  height: 16px;
+}

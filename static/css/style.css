@@ -3463,12 +3463,14 @@ textarea:focus {
   }
 }
 
-/* Fix for any lingering grid styles */
+/* Fixed grid view styles */
 .enhanced-treeview.grid-view {
-  display: block !important;
-  grid-template-columns: unset !important;
-  gap: unset !important;
-  padding: unset !important;
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)) !important;
+  gap: 1rem !important;
+  padding: 1rem !important;
+  list-style: none !important;
+  margin: 0 !important;
 }
 
 .enhanced-treeview.compact-view {

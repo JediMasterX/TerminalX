@@ -195,6 +195,11 @@
   padding: 0;
 }
 
+/* Make room for dual-emoji combined button */
+.grid-action.combined { width: 56px; }
+.compact-action.combined { width: 44px; }
+.emoji-action.combined { width: 44px; }
+
 .compact-action:hover {
   transform: scale(1.1);
   background: var(--hover-bg);
@@ -821,17 +826,20 @@ button:active {
 
 .admin-badge, .user-badge {
   display: inline-block;
-  padding: 4px 12px;
-  border-radius: var(--radius-sm);
-  font-size: 0.8rem;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  line-height: 1.2;
+  vertical-align: middle;
 }
 
 .admin-badge {
-  background: linear-gradient(135deg, var(--accent-orange) 0%, #da3633 100%);
-  color: white;
+  background: transparent;
+  color: var(--accent-orange);
+  border: 1px solid var(--accent-orange);
 }
 
 .user-badge {
@@ -1844,6 +1852,8 @@ button:active {
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s ease;
+  font-size: 18px;
+  line-height: 1;
 }
 
 .delete-user-btn:hover {
@@ -1851,10 +1861,7 @@ button:active {
   box-shadow: var(--shadow-md);
 }
 
-.delete-user-btn svg {
-  width: 16px;
-  height: 16px;
-}
+.delete-user-btn svg { display: none; }
 
 /* ── Collapsible Sections ──────────────────────────────────────────────────── */
 .collapsible-header {
@@ -3396,4 +3403,9 @@ textarea:focus {
 .emoji-action .icon {
   width: 16px;
   height: 16px;
+}
+
+/* Emoji icon sizing for action cards */
+.action-icon {
+  font-size: 24px;
 }

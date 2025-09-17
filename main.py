@@ -1,5 +1,6 @@
 import db
 import os
+import secrets
 from fastapi import FastAPI, Request, Depends, HTTPException
 from fastapi.responses import Response
 from starlette.middleware.sessions import SessionMiddleware
@@ -16,7 +17,17 @@ from routers.file_uploader import router as file_uploader
 from routers.sftp_token    import router as sftp_token_router
 
 app = FastAPI()
-app.add_middleware(SessionMiddleware, secret_key="CHANGE_THIS_SECRET")
+
+# Generate a random secret key on each startup to invalidate existing sessions
+# This ensures users are logged out when container restarts
+session_secret = os.getenv("SESSION_SECRET")
+if not session_secret:
+    session_secret = secrets.token_urlsafe(32)
+    print(f"🔐 Generated new session secret: {session_secret[:8]}...{session_secret[-8:]}")
+else:
+    print(f"🔐 Using provided session secret: {session_secret[:8]}...{session_secret[-8:]}")
+
+app.add_middleware(SessionMiddleware, secret_key=session_secret)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
@@ -70,7 +81,17 @@ async def get_host_status(request: Request):
             status_data[host["id"]] = "offline"
     
     return status_data
+
+# Add a logout-all endpoint for admin to clear all sessions
+@app.post("/admin/logout-all")
+async def logout_all_users(request: Request):
+    user = get_current_user(request)
+    if not user or not user.get("is_admin"):
+        raise HTTPException(status_code=403)
     
+    # This would require session store access, which FastAPI's SessionMiddleware doesn't provide
+    # For now, recommend restarting the service
+    return {"message": "Restart the service to invalidate all sessions"}
     
 # SSH-Portal
 app.include_router(auth.router)

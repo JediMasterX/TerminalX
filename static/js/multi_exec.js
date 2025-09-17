@@ -238,8 +238,19 @@ function handleMessage(msg) {
 function updateSummaryBadge() {
   const el = document.getElementById('output-summary');
   if (!el) return;
-  const remaining = Math.max(0, (summary.total || 0) - (summary.success + summary.failure));
-  el.textContent = `OK ${summary.success} · Fail ${summary.failure} · Pending ${remaining}`;
+  let ok = 0, fail = 0;
+  hostViews.forEach(view => {
+    const cls = view.status.classList;
+    if (cls.contains('status-ok')) ok++;
+    else if (cls.contains('status-failed') || cls.contains('status-error')) fail++;
+    else {
+      const stage = view.status.dataset.stage;
+      if (stage === 'connect_failed' || stage === 'error') fail++;
+    }
+  });
+  const total = summary.total || hostViews.size || 0;
+  const remaining = Math.max(0, total - (ok + fail));
+  el.textContent = `OK ${ok} · Fail ${fail} · Pending ${remaining}`;
 }
 
 function filterOutput() {
@@ -318,31 +329,19 @@ function toggleOutputPanel() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('runBtn').onclick = connect;
-  document.getElementById('stopBtn').onclick = stopAll;
-  document.getElementById('exportBtn').onclick = exportLog;
-  setButtonsState(false);
-  const toggle = document.getElementById('output-toggle');
-  if (toggle) toggle.onclick = toggleOutputPanel;
+  // Only assign handlers if elements exist (we're on the multi-exec page)
+  const runBtn = document.getElementById('runBtn');
+  const stopBtn = document.getElementById('stopBtn');
+  const exportBtn = document.getElementById('exportBtn');
+  const outputToggle = document.getElementById('output-toggle');
+  
+  if (runBtn) runBtn.onclick = connect;
+  if (stopBtn) stopBtn.onclick = stopAll;
+  if (exportBtn) exportBtn.onclick = exportLog;
+  if (outputToggle) outputToggle.onclick = toggleOutputPanel;
+  
+  // Only set button states if we're on the right page
+  if (runBtn && stopBtn) {
+    setButtonsState(false);
+  }
 });
-
-// Override summary calculation to derive from current host statuses
-function updateSummaryBadge() {
-  const el = document.getElementById('output-summary');
-  if (!el) return;
-  let ok = 0, fail = 0;
-  hostViews.forEach(view => {
-    const cls = view.status.classList;
-    if (cls.contains('status-ok')) ok++;
-    else if (cls.contains('status-failed') || cls.contains('status-error')) fail++;
-    else {
-      const stage = view.status.dataset.stage;
-      if (stage === 'connect_failed' || stage === 'error') fail++;
-    }
-  });
-  const total = summary.total || hostViews.size || 0;
-  const remaining = Math.max(0, total - (ok + fail));
-  el.textContent = `OK ${ok} · Fail ${fail} · Pending ${remaining}`;
-}
-
-

@@ -16,7 +16,7 @@ function expandRange(rng) {
 // Helper to read host list from file or range input
 function getHosts() {
   const fileInput = document.getElementById('hostFile');
-  if (fileInput.files.length) {
+  if (fileInput && fileInput.files.length) {
     return new Promise((resolve, reject) => {
       const fr = new FileReader();
       fr.onload = () => {
@@ -32,7 +32,8 @@ function getHosts() {
     });
   }
 
-  const rng = document.getElementById('hostRange').value.trim();
+  const hostRangeElement = document.getElementById('hostRange');
+  const rng = hostRangeElement ? hostRangeElement.value.trim() : '';
   if (!rng) return Promise.resolve([]);
   // single shorthand range or single IP
   if (rng.includes('-') && rng.includes('.')) {
@@ -43,7 +44,10 @@ function getHosts() {
 
 // Export the script execution log
 function exportScriptLog() {
-  const text = document.getElementById('scriptOutput').textContent;
+  const outputElement = document.getElementById('scriptOutput');
+  if (!outputElement) return;
+  
+  const text = outputElement.textContent;
   const blob = new Blob([text], { type: 'text/plain' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -58,6 +62,11 @@ let scriptController;
 // Handle upload and run with abort capability
 async function uploadAndRun() {
   const outputEl = document.getElementById('scriptOutput');
+  if (!outputEl) {
+    console.error('Script output element not found');
+    return;
+  }
+  
   outputEl.textContent = '[SYSTEM] Starting script execution...\n';
   scriptController = new AbortController();
 
@@ -66,12 +75,22 @@ async function uploadAndRun() {
     if (!hosts.length) throw new Error('No hosts provided');
 
     outputEl.textContent += `[SYSTEM] Hosts: ${hosts.join(', ')}\n`;
-    const file = document.getElementById('scriptFile').files[0];
+    
+    const fileElement = document.getElementById('scriptFile');
+    const file = fileElement ? fileElement.files[0] : null;
     if (!file) throw new Error('No script file selected');
 
-    const sshUser = document.getElementById('sshUser').value;
-    const sshPass = document.getElementById('sshPass').value;
-    const sudo = document.getElementById('runSudo').checked;
+    const sshUserElement = document.getElementById('sshUser');
+    const sshPassElement = document.getElementById('sshPass');
+    const sudoElement = document.getElementById('runSudo');
+    
+    if (!sshUserElement || !sshPassElement || !sudoElement) {
+      throw new Error('Required form elements not found');
+    }
+
+    const sshUser = sshUserElement.value;
+    const sshPass = sshPassElement.value;
+    const sudo = sudoElement.checked;
 
     outputEl.textContent += '[SYSTEM] Uploading script to hosts...\n';
     const form = new FormData();
@@ -108,7 +127,12 @@ function stopScript() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('uploadRunBtn').onclick = uploadAndRun;
-  document.getElementById('stopScriptBtn').onclick = stopScript;
-  document.getElementById('exportScriptBtn').onclick = exportScriptLog;
+  // Only assign handlers if elements exist (we're on the script-exec page)
+  const uploadRunBtn = document.getElementById('uploadRunBtn');
+  const stopScriptBtn = document.getElementById('stopScriptBtn');
+  const exportScriptBtn = document.getElementById('exportScriptBtn');
+  
+  if (uploadRunBtn) uploadRunBtn.onclick = uploadAndRun;
+  if (stopScriptBtn) stopScriptBtn.onclick = stopScript;
+  if (exportScriptBtn) exportScriptBtn.onclick = exportScriptLog;
 });

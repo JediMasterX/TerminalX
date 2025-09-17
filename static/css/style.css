@@ -275,27 +275,6 @@
   pointer-events: none; /* Let the parent handle the click */
 }
 
-/* Ensure proper expansion animation for nested folders */
-.hosts-container {
-  overflow: hidden;
-  max-height: 0;
-  opacity: 0;
-  transition: max-height 0.25s ease, opacity 0.25s ease;
-  will-change: max-height, opacity;
-  contain: layout paint;
-}
-
-/* Folder path styling improvements */
-.folder-name {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 2px;
-  line-height: 1.4;
-  max-width: 100%;
-  overflow: hidden;
-}
-
 /* Remove the Online counter completely */
 .stat-card:nth-child(2) {
   display: none !important;
@@ -1039,12 +1018,12 @@ button:active {
   border-radius: var(--radius-lg);
   border: 1px solid var(--border-color);
   box-shadow: var(--shadow-lg);
-  /* Allow full height so page scroll works; inner content manages its own scroll */
-  max-height: none;
-  overflow: visible;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   margin-bottom: 2rem;
+  will-change: auto;
+  contain: layout style;
 }
 
 .treeview-header {
@@ -1159,17 +1138,19 @@ button:active {
 
 .bulk-actions.visible {
   display: flex;
-  animation: slideDown 0.3s ease;
+  animation: slideDownSmooth 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
-@keyframes slideDown {
+@keyframes slideDownSmooth {
   from {
     opacity: 0;
-    transform: translateY(-20px);
+    transform: translateY(-20px) scale(0.95);
+    max-height: 0;
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
+    max-height: 80px;
   }
 }
 
@@ -1185,12 +1166,14 @@ button:active {
   display: flex;
   align-items: center;
   gap: 6px;
+  font-weight: 500;
 }
 
 .bulk-action-btn:hover {
   background: var(--hover-bg);
   transform: translateY(-1px);
   box-shadow: var(--shadow-sm);
+  border-color: var(--accent-blue);
 }
 
 .bulk-action-btn.delete:hover {
@@ -1201,43 +1184,43 @@ button:active {
 
 .treeview-content {
   flex: 1 1 auto;
-  /* allow natural page scroll; do not trap inside the panel */
   overflow: visible;
+  scroll-behavior: smooth;
+  contain: layout style;
 }
 
 .enhanced-treeview {
   list-style: none;
   padding: 0;
   margin: 0;
-  display: block;
+  display: block !important;
+  width: 100%;
+  will-change: scroll-position;
+  contain: layout style paint;
 }
 
 .folder-node {
   border-bottom: 1px solid rgba(139, 148, 158, 0.1);
+  contain: layout style;
 }
 
 .folder-node:last-child {
   border-bottom: none;
 }
 
+/* ── Enhanced Folder Animations ─────────────────────────────────────────── */
 .folder-header {
   display: flex;
   align-items: center;
-  padding: 12px 20px;
+  padding: 14px 20px;
   cursor: pointer;
   user-select: none;
-  transition: all 0.2s ease;
+  transition: all 0.25s cubic-bezier(0.4, 0.0, 0.2, 1);
   background: linear-gradient(135deg, transparent 0%, rgba(88, 166, 255, 0.02) 100%);
   position: relative;
-}
-
-.folder-header:hover {
-  background: var(--hover-bg);
-}
-
-.folder-header.expanded {
-  background: rgba(88, 166, 255, 0.1);
-  border-left: 4px solid var(--accent-blue);
+  will-change: background-color, transform;
+  contain: layout style;
+  transform: translateZ(0); /* Force hardware acceleration */
 }
 
 .folder-header::before {
@@ -1249,8 +1232,22 @@ button:active {
   height: 100%;
   background: var(--accent-blue);
   transform: scaleX(0);
-  transition: transform 0.3s ease;
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
   transform-origin: left;
+}
+
+.folder-header:hover {
+  background: var(--hover-bg);
+  transform: translateX(2px);
+}
+
+.folder-header:hover::before {
+  transform: scaleX(1);
+}
+
+.folder-header.expanded {
+  background: rgba(88, 166, 255, 0.1);
+  transform: translateX(4px);
 }
 
 .folder-header.expanded::before {
@@ -1261,12 +1258,14 @@ button:active {
   width: 20px;
   height: 20px;
   margin-right: 12px;
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
   color: var(--text-secondary);
+  will-change: transform, color;
+  transform: translateZ(0); /* Force hardware acceleration */
 }
 
 .folder-header.expanded .folder-toggle {
-  transform: rotate(90deg);
+  transform: rotate(90deg) scale(1.1);
   color: var(--accent-blue);
 }
 
@@ -1274,13 +1273,38 @@ button:active {
   width: 24px;
   height: 24px;
   margin-right: 12px;
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   fill: var(--accent-blue);
+  will-change: fill, transform;
+  transform: translateZ(0); /* Force hardware acceleration */
 }
 
 .folder-header.expanded .folder-icon {
   fill: var(--accent-green);
-  transform: scale(1.1);
+  transform: scale(1.05);
+}
+
+/* Smooth folder expansion using transform instead of max-height */
+.hosts-container {
+  background: var(--tertiary-bg);
+  border-top: 1px solid var(--border-color);
+  overflow: hidden;
+  transform-origin: top;
+  transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+  will-change: transform, opacity;
+  contain: layout style;
+}
+
+.hosts-container:not(.expanded) {
+  transform: scaleY(0);
+  opacity: 0;
+  max-height: 0;
+}
+
+.hosts-container.expanded {
+  transform: scaleY(1);
+  opacity: 1;
+  max-height: none;
 }
 
 .folder-info {
@@ -1294,6 +1318,11 @@ button:active {
   font-weight: 600;
   font-size: 1rem;
   color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  line-height: 1.4;
 }
 
 .folder-label {
@@ -1335,39 +1364,28 @@ button:active {
   color: var(--accent-orange);
 }
 
-.hosts-container {
-  background: var(--tertiary-bg);
-  border-top: 1px solid var(--border-color);
-}
-
-.hosts-container.expanded {
-  opacity: 1;
-  max-height: 9999px; /* allow full content height */
-  overflow: visible;
-}
-
-/* ensure last items are not cut off in the scroll area */
-.treeview-content {
-  padding-bottom: 12px;
-}
-
+/* ── Optimized Host Node Animations ───────────────────────────────────────── */
 .host-node {
   display: flex;
   align-items: center;
   padding: 12px 20px 12px 60px;
   border-bottom: 1px solid rgba(139, 148, 158, 0.05);
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
+  will-change: background-color, transform;
+  contain: layout style paint;
+  transform: translateZ(0); /* Force hardware acceleration */
 }
 
 .host-node:hover {
   background: var(--hover-bg);
-  transform: translateX(4px);
+  transform: translateX(6px);
 }
 
 .host-node.selected {
   background: rgba(88, 166, 255, 0.15);
   border-left: 4px solid var(--accent-blue);
+  transform: translateX(4px);
 }
 
 .host-node.pinned {
@@ -1558,6 +1576,101 @@ button:active {
 .empty-state small {
   font-size: 0.9rem;
   opacity: 0.7;
+}
+
+/* ── Enhanced Nested Folder Animations ────────────────────────────────────── */
+.subfolder-list .folder-node {
+  animation: slideInFromLeft 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  opacity: 0;
+  transform: translateX(-10px);
+  animation-delay: 0.1s;
+}
+
+.subfolder-list .folder-node.visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+@keyframes slideInFromLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* ── View Toggle Transitions ──────────────────────────────────────────────── */
+.enhanced-treeview.grid-view {
+  opacity: 0;
+  animation: fadeInGrid 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes fadeInGrid {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.enhanced-treeview:not(.grid-view):not(.compact-view) {
+  animation: fadeInTree 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes fadeInTree {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Search Results Animation ─────────────────────────────────────────────── */
+.enhanced-treeview .folder-node.search-match {
+  animation: highlightMatch 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes highlightMatch {
+  0% {
+    background: transparent;
+    transform: translateX(0);
+  }
+  25% {
+    background: rgba(88, 166, 255, 0.1);
+    transform: translateX(4px);
+  }
+  100% {
+    background: transparent;
+    transform: translateX(0);
+  }
+}
+
+/* ── Loading States with Skeleton Animation ───────────────────────────────── */
+.folder-loading {
+  background: linear-gradient(90deg, var(--secondary-bg) 25%, var(--tertiary-bg) 50%, var(--secondary-bg) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+  border-radius: var(--radius-sm);
+  height: 20px;
+  margin: 8px 0;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 
 /* ── Legacy Tree View Styles (for backward compatibility) ──────────────────── */
@@ -2555,19 +2668,24 @@ body.fileuploader-page .exec-terminal {
   margin-top: 15px;
 }
 
-/* ── Responsive Design ────────────────────────────────────────────────────── */
-@media (max-width: 1200px) {
-  .search-container {
-    min-width: 250px;
+/* ── Responsive Animation Adjustments ─────────────────────────────────────── */
+@media (max-width: 768px) {
+  /* Reduce animation complexity on mobile */
+  .folder-header,
+  .host-node {
+    transition-duration: 0.15s;
   }
   
-  .host-details {
-    flex-direction: column;
-    gap: 2px;
+  .hosts-container {
+    transition-duration: 0.2s;
   }
-}
-
-@media (max-width: 768px) {
+  
+  /* Disable some transforms on mobile for better performance */
+  .folder-header:hover,
+  .host-node:hover {
+    transform: none;
+  }
+  
   .navbar {
     padding: 8px 16px;
     flex-wrap: wrap;
@@ -2775,6 +2893,26 @@ body.fileuploader-page .exec-terminal {
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  /* Respect user's motion preferences */
+  .folder-header,
+  .host-node,
+  .hosts-container,
+  .folder-toggle,
+  .folder-icon {
+    transition: none !important;
+    animation: none !important;
+  }
+  
+  .hosts-container:not(.expanded) {
+    display: none;
+  }
+  
+  .hosts-container.expanded {
+    display: block;
+  }
+}
+
 /* ── Performance Optimizations ────────────────────────────────────────────── */
 .enhanced-treeview-container {
   will-change: transform;
@@ -2919,17 +3057,7 @@ textarea:focus {
   }
 }
 
-/* ── Reduced Motion Preferences ────────────────────────────────────────── */
-@media (prefers-reduced-motion: reduce) {
-  * {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
-}
-
 /* ── Emoji Action Buttons ──────────────────────────────────────────────── */
-
 .emoji-action {
   background: var(--tertiary-bg);
   border: 1px solid var(--border-color);
@@ -2945,6 +3073,7 @@ textarea:focus {
   margin: 2px;
   padding: 0;
   line-height: 1;
+  transform: translateZ(0); /* Force hardware acceleration */
 }
 
 .emoji-action:hover {
@@ -2979,74 +3108,7 @@ textarea:focus {
   box-shadow: 0 0 8px rgba(248, 81, 73, 0.3);
 }
 
-/* Bulk action buttons with emojis - Enhanced */
-.bulk-action-btn {
-  background: var(--tertiary-bg);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  padding: 8px 12px;
-  color: var(--text-primary);
-  font-size: 0.85rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-weight: 500;
-}
-
-.bulk-action-btn:hover {
-  background: var(--hover-bg);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-sm);
-  border-color: var(--accent-blue);
-}
-
-.bulk-action-btn.delete:hover {
-  background: rgba(248, 81, 73, 0.1);
-  border-color: var(--accent-orange);
-  color: var(--accent-orange);
-}
-
-/* ── Mobile Responsiveness for Emoji Actions ─────────────────────────────── */
-@media (max-width: 768px) {
-  .emoji-action {
-    width: 28px;
-    height: 28px;
-    font-size: 14px;
-    margin: 1px;
-  }
-  
-  .host-actions {
-    opacity: 1; /* Always visible on mobile */
-  }
-}
-
-@media (max-width: 480px) {
-  .emoji-action {
-    width: 26px;
-    height: 26px;
-    font-size: 13px;
-  }
-  
-  .bulk-action-btn {
-    padding: 6px 10px;
-    font-size: 0.8rem;
-  }
-}
-
-/* ── Fix for button focus states ─────────────────────────────────────────── */
-.emoji-action:focus {
-  outline: 2px solid var(--accent-blue);
-  outline-offset: 2px;
-}
-
-.emoji-action:focus:not(:focus-visible) {
-  outline: none;
-}
-
 /* ── Nested Folder Breadcrumb Styling ──────────────────────────────────── */
-
 .folder-part {
   background: rgba(88, 166, 255, 0.1);
   padding: 2px 6px;
@@ -3077,6 +3139,258 @@ textarea:focus {
   color: var(--text-primary);
 }
 
+/* ── Terminal Context Menu (Overlay/Inline) ─────────────────────────────── */
+.terminal-context-menu {
+  position: fixed;
+  background: #1f2937;
+  color: #e5e7eb;
+  border: 1px solid #374151;
+  border-radius: 6px;
+  min-width: 160px;
+  box-shadow: 0 10px 20px rgba(0,0,0,0.35);
+  padding: 6px 0;
+  z-index: 10000;
+  display: none;
+}
+
+.terminal-context-menu .item {
+  padding: 8px 14px;
+  cursor: pointer;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.terminal-context-menu .item:hover { 
+  background: #374151; 
+}
+
+.terminal-context-menu .item.disabled { 
+  opacity: 0.5; 
+  cursor: not-allowed; 
+}
+
+.terminal-context-menu .separator { 
+  height: 1px; 
+  background: #2d3748; 
+  margin: 6px 0; 
+}
+
+/* ── Enhanced Grid and Compact View Styles ────────────────────────────────── */
+.host-grid-card {
+  min-height: 280px;
+  display: flex;
+  flex-direction: column;
+}
+
+.host-grid-card .card-actions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color);
+  margin-top: auto;
+}
+
+.grid-action {
+  width: 100%;
+  height: 36px;
+}
+
+.compact-table {
+  table-layout: fixed;
+}
+
+.compact-table th:last-child,
+.compact-table td:last-child {
+  width: 280px;
+}
+
+.compact-actions {
+  display: flex;
+  gap: 3px;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  align-items: center;
+}
+
+.compact-action {
+  width: 26px;
+  height: 26px;
+  font-size: 12px;
+  margin: 1px;
+}
+
+/* MultiExec host output sections */
+.host-section { 
+  border: 1px solid var(--border-color); 
+  border-radius: var(--radius-sm); 
+  margin: 8px 0; 
+  background: var(--secondary-bg); 
+}
+
+.host-header { 
+  display:flex; 
+  justify-content:flex-start; 
+  align-items:center; 
+  padding: 6px 10px; 
+  border-bottom: 1px solid var(--border-color); 
+  gap: 8px; 
+  flex-wrap: wrap; 
+}
+
+.host-title { 
+  font-weight: 600; 
+  color: var(--text-primary); 
+}
+
+.badge { 
+  font-size: 0.85rem; 
+  padding: 2px 8px; 
+  border-radius: 999px; 
+  background: var(--tertiary-bg); 
+  color: var(--text-secondary); 
+  border: 1px solid var(--border-color); 
+}
+
+.host-output { 
+  margin: 0; 
+  padding: 8px 10px; 
+  max-height: 260px; 
+  overflow: auto; 
+  white-space: pre-wrap; 
+  word-break: break-word; 
+}
+
+/* Output Panel (collapsed/expanded) */
+.output-panel { 
+  border: 1px solid var(--border-color); 
+  border-radius: var(--radius-md); 
+  background: var(--secondary-bg); 
+  margin-top: 1rem; 
+  overflow: hidden; 
+}
+
+.output-toggle { 
+  width: 100%; 
+  text-align: left; 
+  display: flex; 
+  align-items: center; 
+  gap: 8px; 
+  padding: 10px 12px; 
+  background: var(--tertiary-bg); 
+  border: 0; 
+  border-bottom: 1px solid var(--border-color); 
+  color: var(--text-primary); 
+  cursor: pointer; 
+}
+
+.output-toggle .toggle-icon { 
+  width: 16px; 
+  display: inline-block; 
+}
+
+.output-toggle .toggle-title { 
+  font-weight: 600; 
+}
+
+.output-toggle .toggle-count { 
+  margin-left: 12px; 
+  font-size: 0.85rem; 
+  color: var(--text-secondary); 
+}
+
+.output-body { 
+  max-height: 0; 
+  overflow: hidden; 
+  transition: max-height 0.2s ease; 
+}
+
+.output-panel:not(.collapsed) .output-body { 
+  max-height: 50vh; 
+}
+
+/* Clean theme for exec-terminal (remove Ubuntu-like look) */
+.exec-terminal.clean-theme { 
+  background: var(--secondary-bg); 
+  border: 1px solid var(--border-color); 
+  border-radius: var(--radius-sm); 
+  position: relative; 
+}
+
+.exec-terminal.clean-theme::before,
+.exec-terminal.clean-theme::after { 
+  display: none !important; 
+}
+
+.exec-terminal.clean-theme pre { 
+  padding-top: 8px !important; 
+}
+
+/* Status badge sizes and colors */
+.badge.status-connecting { 
+  background: var(--tertiary-bg); 
+  color: var(--text-secondary); 
+  font-size: 0.78rem; 
+}
+
+.badge.status-running { 
+  background: rgba(100, 108, 255, 0.15); 
+  color: var(--accent-blue); 
+  font-size: 0.72rem; 
+  animation: none; 
+}
+
+.badge.status-ok { 
+  background: rgba(16, 185, 129, 0.15); 
+  color: var(--accent-green); 
+  font-size: 0.78rem; 
+}
+
+.badge.status-failed { 
+  background: rgba(248, 81, 73, 0.15); 
+  color: var(--accent-orange); 
+  font-size: 0.78rem; 
+}
+
+.badge.status-error { 
+  background: rgba(248, 81, 73, 0.15); 
+  color: var(--accent-orange); 
+  font-size: 0.78rem; 
+}
+
+.badge.status-stopped { 
+  background: rgba(139, 148, 158, 0.15); 
+  color: var(--text-secondary); 
+  font-size: 0.78rem; 
+}
+
+/* Inline SVG icon system for action buttons (asset-free) */
+.icon {
+  width: 16px;
+  height: 16px;
+  display: block;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.grid-action .icon,
+.compact-action .icon,
+.emoji-action .icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* Emoji icon sizing for action cards */
+.action-icon {
+  font-size: 24px;
+}
+
 /* Mobile responsive breadcrumbs */
 @media (max-width: 768px) {
   .folder-part {
@@ -3087,6 +3401,23 @@ textarea:focus {
   .folder-separator {
     margin: 0 4px;
     font-size: 0.8rem;
+  }
+  
+  .emoji-action {
+    width: 28px;
+    height: 28px;
+    font-size: 14px;
+    margin: 1px;
+  }
+  
+  .host-grid-card .card-actions {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.3rem;
+  }
+  
+  .compact-table th:last-child,
+  .compact-table td:last-child {
+    width: 240px;
   }
 }
 
@@ -3103,218 +3434,13 @@ textarea:focus {
   .folder-separator {
     margin: 0 3px;
   }
-}
-
-/* ── Popup Terminal Styles (Add to end of style.css) ──────────────────────── */
-.popup-terminal-body {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-  background: #000;
-  color: #fff;
-  font-family: monospace;
-  overflow: hidden;
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-}
-
-.popup-terminal-header {
-  background: #1a1a1a;
-  padding: 8px 12px;
-  border-bottom: 1px solid #333;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 12px;
-  color: #ccc;
-  flex-shrink: 0;
-}
-
-.popup-terminal-title {
-  font-weight: bold;
-}
-
-.popup-terminal-close {
-  background: #ff4444;
-  color: white;
-  border: none;
-  border-radius: 3px;
-  padding: 4px 8px;
-  cursor: pointer;
-  font-size: 11px;
-  transition: all 0.2s ease;
-}
-
-.popup-terminal-close:hover {
-  background: #ff6666;
-}
-
-.popup-terminal-container {
-  flex: 1;
-  width: 100%;
-  background: #000;
-}
-
-.popup-xterm-viewport {
-  background: #000 !important;
-}
-/* ── Enhanced Grid and Compact View Styles ────────────────────────────────── */
-
-/* Grid View Enhancements */
-.host-grid-card {
-  min-height: 280px; /* Ensure consistent height */
-  display: flex;
-  flex-direction: column;
-}
-
-.host-grid-card .card-actions {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr); /* 3 buttons per row */
-  gap: 0.5rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--border-color);
-  margin-top: auto; /* Push actions to bottom */
-}
-
-/* ── Terminal Context Menu (Overlay/Inline) ─────────────────────────────── */
-.terminal-context-menu {
-  position: fixed;
-  background: #1f2937; /* slate-800 */
-  color: #e5e7eb; /* gray-200 */
-  border: 1px solid #374151; /* gray-700 */
-  border-radius: 6px;
-  min-width: 160px;
-  box-shadow: 0 10px 20px rgba(0,0,0,0.35);
-  padding: 6px 0;
-  z-index: 10000;
-  display: none;
-}
-.terminal-context-menu .item {
-  padding: 8px 14px;
-  cursor: pointer;
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif;
-  font-size: 13px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.terminal-context-menu .item:hover { background: #374151; }
-.terminal-context-menu .item.disabled { opacity: 0.5; cursor: not-allowed; }
-.terminal-context-menu .separator { height: 1px; background: #2d3748; margin: 6px 0; }
-
-.grid-action {
-  background: var(--tertiary-bg);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  width: 100%;
-  height: 36px;
-  font-size: 16px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-  padding: 0;
-}
-
-.grid-action:hover {
-  transform: scale(1.05);
-  background: var(--hover-bg);
-  border-color: var(--accent-blue);
-}
-
-.grid-action.delete:hover {
-  background: rgba(248, 81, 73, 0.1);
-  border-color: var(--accent-orange);
-  color: var(--accent-orange);
-}
-
-/* Compact View Enhancements */
-.compact-table {
-  table-layout: fixed; /* Fixed layout for better control */
-}
-
-.compact-table th:last-child,
-.compact-table td:last-child {
-  width: 280px; /* Fixed width for actions column */
-}
-
-.compact-actions {
-  display: flex;
-  gap: 3px;
-  flex-wrap: wrap;
-  justify-content: flex-start;
-  align-items: center;
-}
-
-.compact-action {
-  background: var(--tertiary-bg);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  width: 26px;
-  height: 26px;
-  font-size: 12px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-  padding: 0;
-  margin: 1px;
-}
-
-.compact-action:hover {
-  transform: scale(1.1);
-  background: var(--hover-bg);
-  border-color: var(--accent-blue);
-}
-
-.compact-action.delete:hover {
-  background: rgba(248, 81, 73, 0.1);
-  border-color: var(--accent-orange);
-  color: var(--accent-orange);
-}
-
-/* Enhanced Tree View Container Reset */
-.enhanced-treeview {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: block !important; /* Ensure it's always block */
-  width: 100%;
-}
-
-/* View transition improvements */
-.treeview-content {
-  transition: all 0.3s ease;
-  min-height: 200px;
-}
-
-/* Responsive adjustments for new buttons */
-@media (max-width: 768px) {
-  .host-grid-card .card-actions {
-    grid-template-columns: repeat(2, 1fr); /* 2 buttons per row on mobile */
-    gap: 0.3rem;
+  
+  .emoji-action {
+    width: 26px;
+    height: 26px;
+    font-size: 13px;
   }
   
-  .compact-actions {
-    gap: 2px;
-  }
-  
-  .compact-action {
-    width: 24px;
-    height: 24px;
-    font-size: 11px;
-  }
-  
-  .compact-table th:last-child,
-  .compact-table td:last-child {
-    width: 240px; /* Smaller width on mobile */
-  }
-}
-
-@media (max-width: 480px) {
   .host-grid-card .card-actions {
     grid-template-columns: repeat(2, 1fr);
     gap: 0.2rem;
@@ -3337,12 +3463,6 @@ textarea:focus {
   }
 }
 
-/* Ensure proper container reset between view changes */
-.treeview-content > * {
-  max-width: 100%;
-  box-sizing: border-box;
-}
-
 /* Fix for any lingering grid styles */
 .enhanced-treeview.grid-view {
   display: block !important;
@@ -3356,56 +3476,4 @@ textarea:focus {
   grid-template-columns: unset !important;
   gap: unset !important;
   padding: unset !important;
-}
-/* MultiExec host output sections */
-.host-section { border: 1px solid var(--border-color); border-radius: var(--radius-sm); margin: 8px 0; background: var(--secondary-bg); }
-.host-header { display:flex; justify-content:flex-start; align-items:center; padding: 6px 10px; border-bottom: 1px solid var(--border-color); gap: 8px; flex-wrap: wrap; }
-.host-title { font-weight: 600; color: var(--text-primary); }
-.badge { font-size: 0.85rem; padding: 2px 8px; border-radius: 999px; background: var(--tertiary-bg); color: var(--text-secondary); border: 1px solid var(--border-color); }
-.host-output { margin: 0; padding: 8px 10px; max-height: 260px; overflow: auto; white-space: pre-wrap; word-break: break-word; }
-
-/* Output Panel (collapsed/expanded) */
-.output-panel { border: 1px solid var(--border-color); border-radius: var(--radius-md); background: var(--secondary-bg); margin-top: 1rem; overflow: hidden; }
-.output-toggle { width: 100%; text-align: left; display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: var(--tertiary-bg); border: 0; border-bottom: 1px solid var(--border-color); color: var(--text-primary); cursor: pointer; }
-.output-toggle .toggle-icon { width: 16px; display: inline-block; }
-.output-toggle .toggle-title { font-weight: 600; }
-.output-toggle .toggle-count { margin-left: 12px; font-size: 0.85rem; color: var(--text-secondary); }
-.output-body { max-height: 0; overflow: hidden; transition: max-height 0.2s ease; }
-.output-panel:not(.collapsed) .output-body { max-height: 50vh; }
-
-/* Clean theme for exec-terminal (remove Ubuntu-like look) */
-.exec-terminal.clean-theme { background: var(--secondary-bg); border: 1px solid var(--border-color); border-radius: var(--radius-sm); position: relative; }
-.exec-terminal.clean-theme::before,
-.exec-terminal.clean-theme::after { display: none !important; }
-.exec-terminal.clean-theme pre { padding-top: 8px !important; }
-
-/* Status badge sizes and colors */
-.badge.status-connecting { background: var(--tertiary-bg); color: var(--text-secondary); font-size: 0.78rem; }
-.badge.status-running { background: rgba(100, 108, 255, 0.15); color: var(--accent-blue); font-size: 0.72rem; animation: none; }
-.badge.status-ok { background: rgba(16, 185, 129, 0.15); color: var(--accent-green); font-size: 0.78rem; }
-.badge.status-failed { background: rgba(248, 81, 73, 0.15); color: var(--accent-orange); font-size: 0.78rem; }
-.badge.status-error { background: rgba(248, 81, 73, 0.15); color: var(--accent-orange); font-size: 0.78rem; }
-.badge.status-stopped { background: rgba(139, 148, 158, 0.15); color: var(--text-secondary); font-size: 0.78rem; }
-
-/* Inline SVG icon system for action buttons (asset-free) */
-.icon {
-  width: 16px;
-  height: 16px;
-  display: block;
-  stroke: currentColor;
-  fill: none;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-.grid-action .icon,
-.compact-action .icon,
-.emoji-action .icon {
-  width: 16px;
-  height: 16px;
-}
-
-/* Emoji icon sizing for action cards */
-.action-icon {
-  font-size: 24px;
 }

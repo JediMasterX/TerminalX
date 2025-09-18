@@ -264,3 +264,34 @@ async def websocket_terminal(websocket: WebSocket, host_id: int):
             logger.debug("Error closing WebSocket: %s", e)
 
         logger.info("SSH connection cleanup completed for host_id=%s", host_id)
+
+@router.get("/terminal-combined")
+async def combined_terminal_page(request: Request, host_id: int):
+    """Combined SSH terminal and SFTP browser in split view"""
+    # 1) Session check
+    user = request.session.get("user")
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+
+    # 2) Fetch host record (and enforce permissions)
+    conn = db.get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT name, host FROM hosts WHERE id = ? AND (user_id = ? OR ?)",
+        (host_id, user["id"], int(user["is_admin"]))
+    )
+    host = cursor.fetchone()
+    if not host:
+        return RedirectResponse("/dashboard", status_code=302)
+
+    # 3) Build dynamic title
+    title = f"Combined Session - {host['name']} ({host['host']})"
+
+    # 4) Render the combined template
+    return templates.TemplateResponse("terminal_combined.html", {
+        "request": request,
+        "host_id": host_id,
+        "host_name": host["name"],
+        "host_addr": host["host"],
+        "title": title
+    })

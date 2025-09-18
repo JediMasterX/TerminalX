@@ -1,5 +1,6 @@
 import db
 import os
+import secrets
 from fastapi import FastAPI, Request, Depends, HTTPException
 from fastapi.responses import Response
 from starlette.middleware.sessions import SessionMiddleware
@@ -16,7 +17,18 @@ from routers.file_uploader import router as file_uploader
 from routers.sftp_token    import router as sftp_token_router
 
 app = FastAPI()
-app.add_middleware(SessionMiddleware, secret_key="CHANGE_THIS_SECRET")
+
+# Use a static session secret if provided, otherwise generate one (but warn about it)
+session_secret = os.getenv("SESSION_SECRET")
+if not session_secret:
+    session_secret = secrets.token_urlsafe(32)
+    print(f"⚠️  WARNING: No SESSION_SECRET provided, generated random one. Sessions will be lost on restart!")
+    print(f"   Generated secret: {session_secret}")
+    print(f"   To fix: Set SESSION_SECRET environment variable to a static value")
+else:
+    print(f"✅ Using static SESSION_SECRET: {session_secret[:8]}...{session_secret[-8:]}")
+
+app.add_middleware(SessionMiddleware, secret_key=session_secret)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
@@ -70,7 +82,17 @@ async def get_host_status(request: Request):
             status_data[host["id"]] = "offline"
     
     return status_data
-    
+
+# Debug endpoint to check session status
+@app.get("/debug/session")
+async def debug_session(request: Request):
+    user = get_current_user(request)
+    return {
+        "has_session": bool(request.session),
+        "session_keys": list(request.session.keys()) if request.session else [],
+        "has_user": bool(user),
+        "user": user if user else None
+    }
     
 # SSH-Portal
 app.include_router(auth.router)

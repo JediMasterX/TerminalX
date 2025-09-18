@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Combined Terminal & SFTP - {{ host_name }}</title>
+    
+    <!-- XTerm CSS -->
+    <link rel="stylesheet" href="/static/vendor/xterm/xterm.css">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #0d1117;
+            color: #f0f6fc;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #161b22 0%, #21262d 100%);
+            border-bottom: 1px solid #30363d;
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            position: relative;
+        }
+
+        .host-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .host-icon {
+            width: 24px;
+            height: 24px;
+            background: #58a6ff;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+
+        .host-details h1 {
+            font-size: 1.2rem;
+            color: #f0f6fc;
+            margin: 0;
+        }
+
+        .host-details span {
+            font-size: 0.9rem;
+            color: #8b949e;
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 8px;
+        }
+
+        .control-btn {
+            background: #21262d;
+            border: 1px solid #30363d;
+            color: #f0f6fc;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .control-btn:hover {
+            background: #30363d;
+            border-color: #58a6ff;
+        }
+
+        .control-btn.active {
+            background: #58a6ff;
+            border-color: #58a6ff;
+            color: white;
+        }
+
+        .main-layout {
+            display: flex;
+            height: calc(100vh - 60px);
+            position: relative;
+            flex-direction: row;
+        }
+
+        /* LEFT PANEL - Remove constraints that prevent left resize */
+        .left-panel {
+            background: #0d1117;
+            position: relative;
+            border-right: 1px solid #30363d;
+            display: flex;
+            flex-direction: column;
+            /* CRITICAL: Remove min-width and use width instead of flex */
+            width: 40%;
+            min-width: 100px; /* Only prevent completely collapsing */
+        }
+
+        .left-panel.hidden {
+            display: none !important;
+        }
+
+        /* RESIZER BAR - Keep the working version */
+        .panel-resizer {
+            width: 8px;
+            background: #30363d;
+            cursor: col-resize;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            flex-shrink: 0;
+        }
+
+        .panel-resizer::before {
+            content: '';
+            width: 2px;
+            height: 40px;
+            background: #58a6ff;
+            border-radius: 1px;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+
+        .panel-resizer:hover::before {
+            opacity: 0.6;
+        }
+
+        .panel-resizer.actively-resizing {
+            background: #58a6ff !important;
+        }
+
+        .panel-resizer.actively-resizing::before {
+            opacity: 1 !important;
+            background: #ffffff !important;
+        }
+
+        .panel-resizer.disabled {
+            cursor: default;
+            background: #21262d;
+            pointer-events: none;
+        }
+
+        .panel-resizer:focus {
+            outline: 2px solid #58a6ff;
+            outline-offset: 2px;
+        }
+
+        /* RIGHT PANEL - Use flex to fill remaining space */
+        .right-panel {
+            flex: 1;
+            background: #000;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            min-width: 200px; /* Prevent right panel from getting too small */
+        }
+
+        .panel-header {
+            background: #161b22;
+            border-bottom: 1px solid #30363d;
+            padding: 8px 16px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex: 0 0 auto;
+        }
+
+        .panel-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #3fb950;
+            animation: pulse 2s infinite;
+        }
+
+        .status-indicator.disconnected {
+            background: #f85149;
+            animation: none;
+        }
+
+        .status-indicator.connecting {
+            background: #f1e05a;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        #terminal {
+            flex: 1;
+            background: #000;
+        }
+
+        .sftp-content {
+            flex: 1;
+            position: relative;
+            background: #0d1117;
+        }
+
+        .sftp-iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: #0d1117;
+        }
+
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(13, 17, 23, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 16px;
+            z-index: 100;
+        }
+
+        .loading-spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid #30363d;
+            border-top: 3px solid #58a6ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .connection-status {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .connection-status.connected {
+            background: rgba(63, 185, 80, 0.15);
+            color: #3fb950;
+        }
+
+        .connection-status.disconnected {
+            background: rgba(248, 81, 73, 0.15);
+            color: #f85149;
+        }
+
+        .connection-status.connecting {
+            background: rgba(241, 224, 90, 0.15);
+            color: #f1e05a;
+        }
+
+        /* Prevent text selection during resize - KEEP THIS */
+        .actively-resizing-document {
+            user-select: none !important;
+            -webkit-user-select: none !important;
+            -moz-user-select: none !important;
+            -ms-user-select: none !important;
+            cursor: col-resize !important;
+        }
+
+        .actively-resizing-document * {
+            user-select: none !important;
+            -webkit-user-select: none !important;
+            -moz-user-select: none !important;
+            -ms-user-select: none !important;
+            cursor: col-resize !important;
+        }
+
+        /* During resize, prevent the SFTP iframe from swallowing mouse events */
+        .actively-resizing-document .sftp-iframe {
+            pointer-events: none !important;
+        }
+
+        /* Overlay to capture mouse events over panels while resizing */
+        .resize-overlay {
+            position: absolute;
+            inset: 0;
+            z-index: 5;
+            cursor: col-resize;
+            background: transparent;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="host-info">
+            <div class="host-icon">🖥️</div>
+            <div class="host-details">
+                <h1>{{ host_name }}</h1>
+                <span>{{ host_addr }}</span>
+            </div>
+        </div>
+        
+        <div class="header-controls">
+            <div class="connection-status connected" id="connectionStatus">
+                Connected
+            </div>
+            <button class="control-btn active" id="toggleSftp" title="Toggle SFTP Browser">
+                <span>📁</span> SFTP
+            </button>
+            <button class="control-btn" id="refreshSftp" title="Refresh SFTP">
+                <span>🔄</span> Refresh
+            </button>
+            <button class="control-btn" onclick="window.close()" title="Close Window">
+                <span>✕</span> Close
+            </button>
+        </div>
+    </div>
+
+    <div class="main-layout" id="mainLayout">
+        
+        <!-- LEFT PANEL: SFTP Browser -->
+        <div class="left-panel" id="leftPanel">
+            <div class="panel-header">
+                <div class="panel-title">
+                    <div class="status-indicator" id="sftpStatus"></div>
+                    File Browser
+                </div>
+            </div>
+            <div class="sftp-content">
+                <div class="loading-overlay" id="sftpLoading">
+                    <div class="loading-spinner"></div>
+                    <div>Connecting to SFTP...</div>
+                </div>
+                <iframe class="sftp-iframe" id="sftpFrame" style="display: none;"></iframe>
+            </div>
+        </div>
+
+        <!-- RESIZER -->
+        <div class="panel-resizer" id="panelResizer"></div>
+
+        <!-- RIGHT PANEL: Terminal -->
+        <div class="right-panel" id="rightPanel">
+            <div class="panel-header">
+                <div class="panel-title">
+                    <div class="status-indicator" id="terminalStatus"></div>
+                    Terminal
+                </div>
+            </div>
+            <div id="terminal"></div>
+        </div>
+
+    </div>
+
+    <!-- XTerm Scripts -->
+    <script src="/static/vendor/xterm/xterm.js"></script>
+    <script src="/static/vendor/xterm/xterm-addon-fit.js"></script>
+    <script src="/static/vendor/xterm/xterm-addon-web-links.js"></script>
+    <script src="/static/vendor/xterm/xterm-addon-search.js"></script>
+
+    <script>
+        // Configuration from server
+        const hostId = {{ host_id }};
+        const hostName = "{{ host_name }}";
+        const hostAddr = "{{ host_addr }}";
+        
+        // State management
+        let terminalState = {
+            connected: false,
+            socket: null,
+            term: null,
+            searchAddon: null
+        };
+        
+        let sftpState = {
+            connected: false,
+            token: null,
+            url: null
+        };
+
+        // WORKING Resizer with BOTH directions fixed
+        class WorkingResizer {
+            constructor() {
+                // State tracking - KEEP THE SAFETY MECHANISMS
+                this.isMouseDown = false;
+                this.isActivelyResizing = false;
+                this.startX = 0;
+                this.startLeftWidth = 0;
+                this.containerWidth = 0;
+                this.resizeTimeout = null;
+                this.overlay = null;
+                
+                // Constraints in percentages
+                this.minLeftPercent = 10;
+                this.maxLeftPercent = 80;
+                
+                this.resizer = document.getElementById('panelResizer');
+                this.leftPanel = document.getElementById('leftPanel');
+                this.rightPanel = document.getElementById('rightPanel');
+                this.container = document.getElementById('mainLayout');
+                
+                // Pre-bound event handlers
+                this.boundHandleResize = this.handleResize.bind(this);
+                this.boundStopResize = this.stopResize.bind(this);
+                this.boundPreventSelection = this.preventSelection.bind(this);
+                
+                this.init();
+            }
+            
+            init() {
+                this.resizer.addEventListener('mousedown', this.handleMouseDown.bind(this));
+                this.resizer.addEventListener('touchstart', this.handleTouchStart.bind(this), { passive: false });
+                
+                // KEEP all safety mechanisms
+                this.setupSafetyMechanisms();
+                
+                console.log('🎯 Working resizer initialized - both directions should work');
+            }
+            
+            handleMouseDown(e) {
+                if (this.leftPanel.classList.contains('hidden') || 
+                    this.resizer.classList.contains('disabled') ||
+                    this.isMouseDown ||
+                    this.isActivelyResizing ||
+                    e.button !== 0) {
+                    return;
+                }
+                
+                console.log('🟢 Starting resize - both directions enabled');
+                
+                e.preventDefault();
+                e.stopPropagation();
+                
+                this.isMouseDown = true;
+                this.isActivelyResizing = true;
+                this.startX = e.clientX;
+                this.containerWidth = this.container.getBoundingClientRect().width;
+                this.startLeftWidth = this.leftPanel.getBoundingClientRect().width;
+                
+                this.addActiveResizingState();
+                
+                document.addEventListener('mousemove', this.boundHandleResize, { passive: false });
+                document.addEventListener('mouseup', this.boundStopResize, { passive: false });
+                document.addEventListener('selectstart', this.boundPreventSelection, { passive: false });
+                
+                // Safety timeout
+                this.resizeTimeout = setTimeout(() => {
+                    if (this.isActivelyResizing) {
+                        console.log('🛡️ Safety timeout - force stop');
+                        this.forceStopResize();
+                    }
+                }, 10000);
+            }
+            
+            handleResize(e) {
+                if (!this.isMouseDown || !this.isActivelyResizing) {
+                    return;
+                }
+                
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const currentX = e.clientX;
+                const deltaX = currentX - this.startX;
+                const newLeftWidth = this.startLeftWidth + deltaX;
+                const newLeftPercent = (newLeftWidth / this.containerWidth) * 100;
+                
+                console.log(`Resize: deltaX=${deltaX}, newWidth=${newLeftWidth}px, percent=${newLeftPercent.toFixed(1)}%`);
+                
+                if (newLeftPercent >= this.minLeftPercent && newLeftPercent <= this.maxLeftPercent) {
+                    this.applyResize(newLeftPercent);
+                }
+            }
+            
+            stopResize(e) {
+                if (!this.isMouseDown && !this.isActivelyResizing) {
+                    return;
+                }
+                
+                console.log('🔴 Stopping resize');
+                this.cleanupResize();
+                this.onResizeComplete();
+            }
+            
+            forceStopResize() {
+                console.log('🚨 Force stopping resize');
+                this.cleanupResize();
+                this.onResizeComplete();
+            }
+            
+            cleanupResize() {
+                this.isMouseDown = false;
+                this.isActivelyResizing = false;
+                
+                if (this.resizeTimeout) {
+                    clearTimeout(this.resizeTimeout);
+                    this.resizeTimeout = null;
+                }
+                
+                document.removeEventListener('mousemove', this.boundHandleResize);
+                document.removeEventListener('mouseup', this.boundStopResize);
+                document.removeEventListener('selectstart', this.boundPreventSelection);
+                
+                this.removeActiveResizingState();
+            }
+            
+            applyResize(leftPercent) {
+                console.log(`✅ Applying: LEFT=${leftPercent.toFixed(1)}%`);
+                
+                // Use simple width percentage - let right panel flex to fill
+                this.leftPanel.style.width = `${leftPercent}%`;
+                
+                // Save preference
+                localStorage.setItem('panelLayout', leftPercent.toString());
+            }
+            
+            addActiveResizingState() {
+                document.body.classList.add('actively-resizing-document');
+                this.resizer.classList.add('actively-resizing');
+
+                // Add a transparent overlay above panels so mouseup happens in this document
+                if (!this.overlay) {
+                    this.overlay = document.createElement('div');
+                    this.overlay.className = 'resize-overlay';
+                }
+                // Ensure container is positioned to contain overlay
+                if (getComputedStyle(this.container).position === 'static') {
+                    this.container.style.position = 'relative';
+                }
+                this.container.appendChild(this.overlay);
+            }
+            
+            removeActiveResizingState() {
+                document.body.classList.remove('actively-resizing-document');
+                this.resizer.classList.remove('actively-resizing');
+
+                if (this.overlay && this.overlay.parentNode === this.container) {
+                    this.container.removeChild(this.overlay);
+                }
+            }
+            
+            preventSelection(e) {
+                e.preventDefault();
+                return false;
+            }
+            
+            onResizeComplete() {
+                setTimeout(() => {
+                    if (terminalState.term) {
+                        terminalState.term.fit();
+                    }
+                }, 50);
+            }
+            
+            setupSafetyMechanisms() {
+                // KEEP all the working safety mechanisms
+                document.addEventListener('mouseleave', () => {
+                    if (this.isActivelyResizing) {
+                        console.log('🛡️ Mouse left window - stopping');
+                        this.forceStopResize();
+                    }
+                });
+                
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape' && this.isActivelyResizing) {
+                        console.log('🛡️ ESC pressed - stopping');
+                        this.forceStopResize();
+                    }
+                });
+                
+                window.addEventListener('blur', () => {
+                    if (this.isActivelyResizing) {
+                        console.log('🛡️ Window blur - stopping');
+                        this.forceStopResize();
+                    }
+                });
+                
+                document.addEventListener('visibilitychange', () => {
+                    if (document.hidden && this.isActivelyResizing) {
+                        console.log('🛡️ Page hidden - stopping');
+                        this.forceStopResize();
+                    }
+                });
+            }
+            
+            handleTouchStart(e) {
+                // Touch support
+                if (this.leftPanel.classList.contains('hidden') || 
+                    this.resizer.classList.contains('disabled') ||
+                    this.isActivelyResizing) {
+                    return;
+                }
+                
+                e.preventDefault();
+                
+                this.isMouseDown = true;
+                this.isActivelyResizing = true;
+                this.startX = e.touches[0].clientX;
+                this.containerWidth = this.container.getBoundingClientRect().width;
+                this.startLeftWidth = this.leftPanel.getBoundingClientRect().width;
+                
+                this.addActiveResizingState();
+                
+                document.addEventListener('touchmove', this.handleTouchMove.bind(this), { passive: false });
+                document.addEventListener('touchend', this.handleTouchEnd.bind(this), { passive: false });
+            }
+            
+            handleTouchMove(e) {
+                if (!this.isMouseDown || !this.isActivelyResizing) return;
+                
+                e.preventDefault();
+                
+                const currentX = e.touches[0].clientX;
+                const deltaX = currentX - this.startX;
+                const newLeftWidth = this.startLeftWidth + deltaX;
+                const newLeftPercent = (newLeftWidth / this.containerWidth) * 100;
+                
+                if (newLeftPercent >= this.minLeftPercent && newLeftPercent <= this.maxLeftPercent) {
+                    this.applyResize(newLeftPercent);
+                }
+            }
+            
+            handleTouchEnd(e) {
+                e.preventDefault();
+                this.cleanupResize();
+                this.onResizeComplete();
+                
+                document.removeEventListener('touchmove', this.handleTouchMove);
+                document.removeEventListener('touchend', this.handleTouchEnd);
+            }
+            
+            toggleSftp() {
+                if (this.leftPanel.classList.contains('hidden')) {
+                    this.showSftp();
+                } else {
+                    this.hideSftp();
+                }
+            }
+            
+            showSftp() {
+                if (this.isActivelyResizing) {
+                    this.forceStopResize();
+                }
+                
+                this.leftPanel.classList.remove('hidden');
+                this.resizer.classList.remove('disabled');
+                
+                const saved = localStorage.getItem('panelLayout');
+                if (saved) {
+                    const percent = parseFloat(saved);
+                    if (percent >= this.minLeftPercent && percent <= this.maxLeftPercent) {
+                        this.applyResize(percent);
+                    } else {
+                        this.applyResize(40);
+                    }
+                } else {
+                    this.applyResize(40);
+                }
+                
+                this.onResizeComplete();
+            }
+            
+            hideSftp() {
+                if (this.isActivelyResizing) {
+                    this.forceStopResize();
+                }
+                
+                this.leftPanel.classList.add('hidden');
+                this.resizer.classList.add('disabled');
+                this.onResizeComplete();
+            }
+        }
+
+        // Initialize terminal (same as before)
+        function initializeTerminal() {
+            const term = new Terminal({
+                fontFamily: "'SF Mono', Monaco, 'Cascadia Code', 'Courier New', monospace",
+                fontSize: 14,
+                theme: { 
+                    background: '#000000',
+                    foreground: '#ffffff',
+                    cursor: '#ffffff',
+                    selection: 'rgba(255, 255, 255, 0.3)'
+                },
+                cursorBlink: true,
+                scrollback: 1000
+            });
+
+            const fitAddon = new FitAddon.FitAddon();
+            const webLinksAddon = new WebLinksAddon.WebLinksAddon();
+            const searchAddon = new SearchAddon.SearchAddon();
+            
+            term.loadAddon(fitAddon);
+            term.loadAddon(webLinksAddon);
+            term.loadAddon(searchAddon);
+
+            const terminalContainer = document.getElementById("terminal");
+            term.open(terminalContainer);
+            
+            terminalState.term = term;
+            terminalState.searchAddon = searchAddon;
+
+            connectTerminal();
+
+            function resizeTerminal() {
+                fitAddon.fit();
+            }
+
+            window.addEventListener('resize', resizeTerminal);
+            setTimeout(resizeTerminal, 100);
+
+            return { term, fitAddon };
+        }
+
+        function connectTerminal() {
+            updateTerminalStatus('connecting');
+            
+            const protocol = location.protocol === "https:" ? "wss" : "ws";
+            const socket = new WebSocket(`${protocol}://${location.host}/ws/${hostId}`);
+            
+            terminalState.socket = socket;
+
+            socket.onopen = () => {
+                updateTerminalStatus('connected');
+                terminalState.connected = true;
+            };
+
+            socket.onmessage = (event) => {
+                terminalState.term.write(event.data);
+            };
+
+            socket.onclose = () => {
+                updateTerminalStatus('disconnected');
+                terminalState.connected = false;
+                terminalState.term.write("\r\n*** Connection closed ***\r\n");
+            };
+
+            socket.onerror = (error) => {
+                updateTerminalStatus('disconnected');
+                console.error('Terminal WebSocket error:', error);
+            };
+
+            terminalState.term.onData(data => {
+                if (socket.readyState === WebSocket.OPEN) {
+                    socket.send(data);
+                }
+            });
+        }
+
+        function updateTerminalStatus(status) {
+            const indicator = document.getElementById('terminalStatus');
+            const connectionStatus = document.getElementById('connectionStatus');
+            
+            indicator.className = `status-indicator ${status}`;
+            
+            switch(status) {
+                case 'connected':
+                    connectionStatus.className = 'connection-status connected';
+                    connectionStatus.textContent = 'Connected';
+                    break;
+                case 'connecting':
+                    connectionStatus.className = 'connection-status connecting';
+                    connectionStatus.textContent = 'Connecting...';
+                    break;
+                case 'disconnected':
+                    connectionStatus.className = 'connection-status disconnected';
+                    connectionStatus.textContent = 'Disconnected';
+                    break;
+            }
+        }
+
+        async function initializeSftp() {
+            try {
+                updateSftpStatus('connecting');
+                document.getElementById('sftpLoading').style.display = 'flex';
+                
+                const response = await fetch('/api/sftp/mint', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ host_id: hostId })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Failed to get SFTP token: ${response.status}`);
+                }
+
+                const data = await response.json();
+                if (!data.token) {
+                    throw new Error('No token received');
+                }
+
+                sftpState.token = data.token;
+                
+                const sftpProtocol = location.protocol;
+                const sftpHost = location.hostname;
+                const sftpPort = '3000';
+                
+                sftpState.url = `${sftpProtocol}//${sftpHost}:${sftpPort}/#token=${encodeURIComponent(data.token)}`;
+                
+                const iframe = document.getElementById('sftpFrame');
+                iframe.src = sftpState.url;
+                
+                iframe.onload = () => {
+                    updateSftpStatus('connected');
+                    document.getElementById('sftpLoading').style.display = 'none';
+                    iframe.style.display = 'block';
+                    sftpState.connected = true;
+                };
+
+                iframe.onerror = () => {
+                    handleSftpError('Failed to load SFTP interface');
+                };
+
+            } catch (error) {
+                handleSftpError('SFTP initialization error: ' + error.message);
+            }
+        }
+
+        function handleSftpError(errorMessage) {
+            updateSftpStatus('disconnected');
+            document.getElementById('sftpLoading').style.display = 'none';
+            console.error('❌ SFTP Error:', errorMessage);
+            
+            const sftpContent = document.querySelector('.sftp-content');
+            const iframe = document.getElementById('sftpFrame');
+            
+            iframe.style.display = 'none';
+            
+            let errorElement = document.getElementById('sftpError');
+            if (!errorElement) {
+                errorElement = document.createElement('div');
+                errorElement.id = 'sftpError';
+                errorElement.style.cssText = `
+                    padding: 20px;
+                    color: #f85149;
+                    background: #161b22;
+                    border: 1px solid #30363d;
+                    border-radius: 6px;
+                    margin: 20px;
+                    text-align: center;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    gap: 10px;
+                `;
+                sftpContent.appendChild(errorElement);
+            }
+            
+            errorElement.innerHTML = `
+                <div style="font-size: 24px;">📁❌</div>
+                <div style="font-weight: bold;">SFTP Connection Failed</div>
+                <div style="font-size: 0.9rem; opacity: 0.8;">${errorMessage}</div>
+                <button onclick="initializeSftp()" style="
+                    background: #238636;
+                    color: white;
+                    border: none;
+                    border-radius: 6px;
+                    padding: 8px 16px;
+                    cursor: pointer;
+                    margin-top: 10px;
+                ">Retry Connection</button>
+            `;
+        }
+
+        function updateSftpStatus(status) {
+            const indicator = document.getElementById('sftpStatus');
+            indicator.className = `status-indicator ${status}`;
+        }
+
+        function toggleSftp() {
+            if (window.workingResizer) {
+                window.workingResizer.toggleSftp();
+                
+                const toggleBtn = document.getElementById('toggleSftp');
+                const refreshBtn = document.getElementById('refreshSftp');
+                
+                if (document.getElementById('leftPanel').classList.contains('hidden')) {
+                    toggleBtn.classList.remove('active');
+                    refreshBtn.style.display = 'none';
+                } else {
+                    toggleBtn.classList.add('active');
+                    refreshBtn.style.display = 'flex';
+                    
+                    if (!sftpState.connected) {
+                        initializeSftp();
+                    }
+                }
+            }
+        }
+
+        function refreshSftp() {
+            if (sftpState.connected) {
+                const iframe = document.getElementById('sftpFrame');
+                iframe.src = iframe.src;
+            }
+        }
+
+        document.getElementById('toggleSftp').addEventListener('click', toggleSftp);
+        document.getElementById('refreshSftp').addEventListener('click', refreshSftp);
+
+        // Initialize application
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('🚀 Initializing with FIXED working resizer...');
+            
+            initializeTerminal();
+            window.workingResizer = new WorkingResizer();
+            
+            console.log('✅ Resizer restored: Both directions + No gaps + No locking');
+            
+            setTimeout(() => {
+                initializeSftp();
+            }, 500);
+            
+            setTimeout(() => {
+                if (terminalState.term) {
+                    terminalState.term.fit();
+                }
+            }, 1000);
+        });
+
+        window.addEventListener('beforeunload', () => {
+            if (terminalState.socket) {
+                terminalState.socket.close();
+            }
+        });
+    </script>
+</body>
+</html>

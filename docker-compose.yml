@@ -21,9 +21,11 @@ services:
       - SFTP_PORT=3000               # Port where sftp-browser service runs
       - SFTP_PROTOCOL=http           # Force HTTP to avoid SSL errors
       # Token minting secret used to encrypt SFTP tokens (must match sftp-browser)
-      - TOKEN_SECRET=${TOKEN_SECRET:-change_me_set_in_.env}
+      - TOKEN_SECRET=your_very_secure_random_secret_key_here_change_me_12345
       # Optional: max TTL the TerminalX side will mint (seconds)
       - TOKEN_TTL_SECONDS=120
+      # FIXED SESSION SECRET - static to prevent session invalidation
+      - SESSION_SECRET=your_static_session_secret_key_change_me_67890_keep_this_same
       
   sftp-browser:
     image: sftp-server:1.0.2.1
@@ -34,7 +36,7 @@ services:
     restart: unless-stopped
     environment:
       # Must match terminalx TOKEN_SECRET for decryption
-      - TOKEN_SECRET=${TOKEN_SECRET:-change_me_set_in_.env}
+      - TOKEN_SECRET=your_very_secure_random_secret_key_here_change_me_12345
       # Optional: server-side TTL enforcement (seconds)
       - TOKEN_MAX_TTL_SECONDS=300
       # Optional: session timeout for idle SFTP connections (ms)

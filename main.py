@@ -18,14 +18,15 @@ from routers.sftp_token    import router as sftp_token_router
 
 app = FastAPI()
 
-# Generate a random secret key on each startup to invalidate existing sessions
-# This ensures users are logged out when container restarts
+# Use a static session secret if provided, otherwise generate one (but warn about it)
 session_secret = os.getenv("SESSION_SECRET")
 if not session_secret:
     session_secret = secrets.token_urlsafe(32)
-    print(f"🔐 Generated new session secret: {session_secret[:8]}...{session_secret[-8:]}")
+    print(f"⚠️  WARNING: No SESSION_SECRET provided, generated random one. Sessions will be lost on restart!")
+    print(f"   Generated secret: {session_secret}")
+    print(f"   To fix: Set SESSION_SECRET environment variable to a static value")
 else:
-    print(f"🔐 Using provided session secret: {session_secret[:8]}...{session_secret[-8:]}")
+    print(f"✅ Using static SESSION_SECRET: {session_secret[:8]}...{session_secret[-8:]}")
 
 app.add_middleware(SessionMiddleware, secret_key=session_secret)
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -82,16 +83,16 @@ async def get_host_status(request: Request):
     
     return status_data
 
-# Add a logout-all endpoint for admin to clear all sessions
-@app.post("/admin/logout-all")
-async def logout_all_users(request: Request):
+# Debug endpoint to check session status
+@app.get("/debug/session")
+async def debug_session(request: Request):
     user = get_current_user(request)
-    if not user or not user.get("is_admin"):
-        raise HTTPException(status_code=403)
-    
-    # This would require session store access, which FastAPI's SessionMiddleware doesn't provide
-    # For now, recommend restarting the service
-    return {"message": "Restart the service to invalidate all sessions"}
+    return {
+        "has_session": bool(request.session),
+        "session_keys": list(request.session.keys()) if request.session else [],
+        "has_user": bool(user),
+        "user": user if user else None
+    }
     
 # SSH-Portal
 app.include_router(auth.router)

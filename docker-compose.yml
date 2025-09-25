@@ -4,10 +4,11 @@ services:
   terminalx:
     image: terminalx:1.1.3.2f
     container_name: terminalx
-    # Expose the same port your FastAPI app listens on (8087 by default)
-    ports:
-      - '8087:8087'
     restart: unless-stopped
+    networks:
+      - terminalx-network
+    expose:
+      - "8087"
     # If you need to mount local config, uncomment & adjust:
     #volumes:
     #   - ./config.json:/app/config.json:ro
@@ -26,14 +27,15 @@ services:
       - TOKEN_TTL_SECONDS=120
       # FIXED SESSION SECRET - static to prevent session invalidation
       - SESSION_SECRET=your_static_session_secret_key_change_me_67890_keep_this_same
-      
+
   sftp-browser:
     image: sftp-server:1.0.2.1
     container_name: sftp-server
-    # Expose the port that SFTP-Browser serves its HTTP UI on (8261)
-    ports:
-      - '3000:3000'
     restart: unless-stopped
+    networks:
+      - terminalx-network
+    expose:
+      - "3000"
     environment:
       # Must match terminalx TOKEN_SECRET for decryption
       - TOKEN_SECRET=your_very_secure_random_secret_key_here_change_me_12345
@@ -43,3 +45,41 @@ services:
       - SESSION_TIMEOUT=600000
     #volumes:
     #   - ./web:/app/web:ro
+
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: terminalx-nginx
+    restart: unless-stopped
+    depends_on:
+      - terminalx
+      - sftp-browser
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8087:8087"
+      - "3000:3000"
+    networks:
+      - terminalx-network
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl
+    command: >
+      /bin/sh -c "
+        if ! command -v openssl >/dev/null 2>&1; then
+          echo 'Installing openssl inside nginx container for temporary certificate support...' >&2;
+          apk add --no-cache openssl >/tmp/openssl-setup.log 2>&1 || {
+            echo 'Failed to install openssl. Provide certificates in nginx/ssl to skip generation.' >&2;
+            exit 1;
+          };
+        fi;
+        mkdir -p /etc/nginx/ssl &&
+        if [ ! -f /etc/nginx/ssl/server.key ] || [ ! -f /etc/nginx/ssl/server.crt ]; then
+          echo 'Generating temporary self-signed certificate (replace with production certificate when ready).' >&2;
+          openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout /etc/nginx/ssl/server.key -out /etc/nginx/ssl/server.crt -subj '/CN=terminalx.local';
+        fi;
+        nginx -g 'daemon off;'
+      "
+
+networks:
+  terminalx-network:
+    driver: bridge
